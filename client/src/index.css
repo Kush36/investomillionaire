@@ -1,0 +1,91 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-gold: #eaa81e;
+  --color-gold-soft: #ffcf5c;
+  --color-navy: #14315c;
+  --color-navy-deep: #0b1c38;
+  --color-ink: #050a16;
+  --color-ink-soft: #0a1224;
+  --color-mint: #33e29b;
+  --color-flame: #ff5d5d;
+  --color-violet: #8b5cf6;
+
+  --font-display: 'Sora', system-ui, sans-serif;
+  --font-mono: 'Space Grotesk', ui-monospace, monospace;
+
+  --animate-float: float 6s ease-in-out infinite;
+  --animate-marquee: marquee 40s linear infinite;
+  --animate-shimmer: shimmer 2.5s linear infinite;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-12px); }
+}
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+@keyframes shimmer {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+
+html {
+  scroll-behavior: smooth;
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  background: var(--color-ink);
+  color: #e8edf7;
+  font-family: var(--font-display);
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+::selection {
+  background: var(--color-gold);
+  color: var(--color-ink);
+}
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: var(--color-ink); }
+::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--color-gold) 40%, transparent);
+  border-radius: 99px;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--color-gold); }
+
+@utility glass {
+  background: color-mix(in srgb, #ffffff 4%, transparent);
+  backdrop-filter: blur(18px);
+  border: 1px solid color-mix(in srgb, #ffffff 8%, transparent);
+}
+
+@utility gold-text {
+  background: linear-gradient(120deg, var(--color-gold-soft), var(--color-gold) 45%, #fff2cd 70%, var(--color-gold));
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: shimmer 5s linear infinite;
+}
+
+@utility grid-bg {
+  background-image:
+    linear-gradient(color-mix(in srgb, #ffffff 4%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, #ffffff 4%, transparent) 1px, transparent 1px);
+  background-size: 56px 56px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
