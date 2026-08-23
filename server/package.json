@@ -7,7 +7,8 @@
     "start": "node src/index.js",
     "seed": "node src/seed.js",
     "mail:test": "node src/scripts/mailtest.js",
-    "pick": "node src/scripts/pick.js"
+    "pick": "node src/scripts/pick.js",
+    "db:test": "node src/scripts/testdb.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.2",

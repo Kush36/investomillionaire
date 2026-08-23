@@ -46,6 +46,17 @@ app.use('/api/auth/signup/start', otpLimiter)
 app.use('/api/auth/signup/resend', otpLimiter)
 app.use('/api/auth/forgot', otpLimiter)
 
+// The API serves no pages. Landing here in a browser should explain that
+// rather than returning a bare 404.
+app.get('/', (_req, res) =>
+  res.json({
+    service: 'InvestoMillionaire API',
+    status: 'ok',
+    site: 'https://investomillionaire.com',
+    endpoints: ['/api/health', '/api/news', '/api/ipo', '/api/reco', '/api/quiz/stats'],
+  })
+)
+
 app.get('/api/health', (_req, res) => res.json({ ok: true, time: new Date().toISOString() }))
 app.use('/api/auth', authRouter)
 app.use('/api/news', newsRouter)
