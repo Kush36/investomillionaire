@@ -13,7 +13,31 @@ import { progressRouter } from './routes/progress.js'
 
 const app = express()
 app.set('trust proxy', 1)
-app.use(cors({ origin: process.env.CLIENT_ORIGIN?.split(',') ?? '*' }))
+// Vercel mints a fresh preview URL on every deployment, so an allow-list of
+// exact strings goes stale constantly. Named origins are matched exactly, and
+// this project's own *.vercel.app deployments are allowed by pattern.
+const allowed = (process.env.CLIENT_ORIGIN || '')
+  .split(',')
+  .map((o) => o.trim())
+  .filter(Boolean)
+
+const VERCEL_PREVIEW = /^https:\/\/[a-z0-9-]+\.vercel\.app$/i
+
+app.use(
+  cors({
+    origin(origin, callback) {
+      // Same-origin, curl and server-to-server requests send no Origin header.
+      if (!origin) return callback(null, true)
+      if (allowed.includes(origin)) return callback(null, true)
+      if (VERCEL_PREVIEW.test(origin)) return callback(null, true)
+      // Do not throw. Throwing turns a blocked origin into a 500 that looks
+      // like the API is down; omitting the header is the browser's cue that
+      // the origin is not permitted.
+      return callback(null, false)
+    },
+    credentials: false,
+  })
+)
 app.use(express.json({ limit: '64kb' }))
 
 app.use('/api', rateLimit({ windowMs: 60_000, limit: 120, standardHeaders: true, legacyHeaders: false }))
