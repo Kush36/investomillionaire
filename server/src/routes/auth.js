@@ -33,14 +33,12 @@ function opaqueOk(res, extra = {}) {
   return res.json({ ok: true, mailerReady, ...extra })
 }
 
-// mailerReady only says credentials exist. `delivered` says the mail actually left.
+// mailerReady only says a key is configured. `delivered` says the mail actually left.
 function otpResponse(res, result, extra = {}) {
   return res.json({
     ok: true,
     mailerReady,
     delivered: Boolean(result?.delivered),
-    // Only present while running on the Ethereal fallback.
-    previewUrl: result?.previewUrl ?? null,
     ...extra,
   })
 }
@@ -56,7 +54,7 @@ async function issueOtp({ email, purpose, payload }) {
   await Otp.deleteMany({ email, purpose, consumedAt: null })
 
   const code = generateOtp()
-  await Otp.create({
+  const record = await Otp.create({
     email,
     purpose,
     codeHash: hashOtp(code),
@@ -64,8 +62,19 @@ async function issueOtp({ email, purpose, payload }) {
     payload,
   })
   const result = await sendOtp(email, code, purpose)
-  return { throttled: false, delivered: result.delivered, previewUrl: result.previewUrl }
+
+  // A code the user never received is worse than no code at all: the row would
+  // hold the sixty second resend gap and block every retry. Drop it and report
+  // the failure. Running with no mail key is the exception, because the code is
+  // printed to the log and the flow is still usable on a laptop.
+  if (!result.delivered && result.reason !== 'not-configured') {
+    await record.deleteOne()
+    return { failed: true }
+  }
+  return { throttled: false, delivered: result.delivered }
 }
+
+const SEND_FAILED = 'We could not send the code just now. Try again in a minute.'
 
 async function consumeOtp(email, purpose, code) {
   const record = await Otp.findOne({ email, purpose, consumedAt: null }).sort({ createdAt: -1 })
@@ -123,6 +132,7 @@ authRouter.post('/signup/start', async (req, res) => {
   if (result.throttled) {
     return res.status(429).json({ error: `A code was just sent. Ask again in ${result.wait} seconds.` })
   }
+  if (result.failed) return res.status(502).json({ error: SEND_FAILED })
   return otpResponse(res, result, { email })
 })
 
@@ -163,6 +173,7 @@ authRouter.post('/signup/resend', async (req, res) => {
 
   const result = await issueOtp({ email: parsed.data.email, purpose: 'signup', payload: pending.payload })
   if (result.throttled) return res.status(429).json({ error: `Wait ${result.wait} seconds before asking again.` })
+  if (result.failed) return res.status(502).json({ error: SEND_FAILED })
   return otpResponse(res, result)
 })
 
@@ -193,6 +204,7 @@ authRouter.post('/forgot', async (req, res) => {
     if (result.throttled) {
       return res.status(429).json({ error: `A code was just sent. Ask again in ${result.wait} seconds.` })
     }
+    if (result.failed) return res.status(502).json({ error: SEND_FAILED })
   }
   return otpResponse(res, result)
 })

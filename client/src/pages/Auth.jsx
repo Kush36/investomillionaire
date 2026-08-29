@@ -98,7 +98,6 @@ export default function Auth() {
   const [newPassword, setNewPassword] = useState('')
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
-  const [preview, setPreview] = useState('')
   const [busy, setBusy] = useState(false)
 
   const field = (key) => ({
@@ -109,7 +108,6 @@ export default function Auth() {
   function go(nextStep) {
     setError('')
     setNotice('')
-    setPreview('')
     setCode('')
     setStep(nextStep)
   }
@@ -141,9 +139,8 @@ export default function Auth() {
       setNotice(
         res.delivered
           ? `We sent a six digit code to ${form.email}.`
-          : 'Real inbox delivery is not set up yet, so the email went to a test mailbox.'
+          : 'Email is not configured on this server, so the code was written to the server log.'
       )
-      setPreview(res.previewUrl || '')
       setStep('verify')
     })
   }
@@ -163,9 +160,8 @@ export default function Auth() {
       setNotice(
         res.delivered
           ? `If that address has an account, a reset code is on its way to ${form.email}.`
-          : 'Real inbox delivery is not set up yet, so the email went to a test mailbox.'
+          : 'Email is not configured on this server, so the code was written to the server log.'
       )
-      setPreview(res.previewUrl || '')
       setStep('reset')
     })
   }
@@ -206,16 +202,6 @@ export default function Auth() {
               <MailCheck size={15} className="mt-0.5 shrink-0" />
               {notice}
             </p>
-            {preview && (
-              <a
-                href={preview}
-                target="_blank"
-                rel="noreferrer noopener"
-                className="mt-2 ml-[23px] inline-block font-semibold underline underline-offset-2 hover:text-white"
-              >
-                Open the email to read your code
-              </a>
-            )}
           </div>
         )}
 

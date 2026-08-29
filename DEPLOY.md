@@ -50,14 +50,29 @@ in the Render and Vercel dashboards.
    | `FIELD_ENCRYPTION_KEY` | `openssl rand -hex 32` |
    | `ADMIN_TOKEN` | `openssl rand -hex 24` |
    | `CLIENT_ORIGIN` | `https://investomillionaire.com,https://www.investomillionaire.com` |
-   | `SMTP_HOST` | `smtp.gmail.com` |
-   | `SMTP_PORT` | `465` |
-   | `SMTP_USER` | `investomillionaire@gmail.com` |
-   | `SMTP_PASS` | your Gmail App Password |
-   | `SMTP_FROM` | `InvestoMillionaire <investomillionaire@gmail.com>` |
+   | `RESEND_API_KEY` | the key from step 3a |
+   | `MAIL_FROM` | `InvestoMillionaire <no-reply@investomillionaire.com>` |
 
 4. Deploy, then note the URL Render gives you, something like `https://investomillionaire-api.onrender.com`.
    Check `https://that-url/api/health` returns `{"ok":true}`.
+
+### 3a. Mail through Resend
+
+Do not use Gmail SMTP here. Render blocks outbound traffic on ports 25, 465 and 587 for free
+instances, so an SMTP connection hangs until it times out and signup dies with a 500. Resend sends
+over HTTPS, which is not blocked.
+
+1. [resend.com](https://resend.com) → create an account → **Domains → Add Domain** →
+   `investomillionaire.com`.
+2. Resend shows a handful of DNS records. Add them wherever the domain's nameservers live, the same
+   place the Vercel records were set. Verification usually lands within the hour.
+3. **API Keys → Create API Key**, sending permission only. Copy it once, Resend will not show it again.
+4. Set `RESEND_API_KEY` and `MAIL_FROM` on Render. `MAIL_FROM` has to sit on the verified domain.
+   A `gmail.com` sender gets a 403.
+5. Check it end to end from your laptop: `cd server && node src/scripts/mailtest.js you@example.com`.
+
+Leave `RESEND_API_KEY` blank in local development. The code is printed to the server log instead of
+being emailed, and signup still works.
 
 **Keep `FIELD_ENCRYPTION_KEY` backed up somewhere safe.** Lose it and every stored mobile number
 becomes permanently unreadable. There is no recovery path, by design.

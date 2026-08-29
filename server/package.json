@@ -7,7 +7,8 @@
     "start": "node src/index.js",
     "seed": "node src/seed.js",
     "mail:test": "node src/scripts/mailtest.js",
-    "pick": "node src/scripts/pick.js"
+    "pick": "node src/scripts/pick.js",
+    "test": "node --test"
   },
   "dependencies": {
     "bcryptjs": "^3.0.2",
@@ -17,7 +18,6 @@
     "express-rate-limit": "^8.1.0",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.19.1",
-    "nodemailer": "^9.0.5",
     "rss-parser": "^3.13.0",
     "zod": "^4.1.12"
   }
