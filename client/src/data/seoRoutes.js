@@ -45,6 +45,14 @@ const STATIC_ROUTES = [
     changefreq: 'daily',
   },
   {
+    path: '/analyze',
+    title: 'Stock analyzer for NSE listed companies',
+    description:
+      'Type a company, a ticker or an ISIN, confirm the exact NSE listing, and read a computed statistical summary: indicators with the warmup each one needs, chart geometry with its measured base rate, quarterly filings and shareholding, and every figure beside the period and source it came from.',
+    priority: 0.9,
+    changefreq: 'daily',
+  },
+  {
     path: '/reco',
     title: 'Broker calls and research coverage',
     description:

@@ -1,19 +1,21 @@
 import { useRef, useState } from 'react'
 import { useFrame } from '@react-three/fiber'
 import Label from './Label.jsx'
+import { useEntrance } from './Scene.jsx'
+import { token } from './Scene.jsx'
 
 // The classic cycle: money rotates between sectors as the economy moves through
 // its phases. Heights show relative strength, not price.
 const SECTORS = [
-  { name: 'IT', strength: 2.6, phase: 'Late bull', color: '#5ee0ff' },
-  { name: 'Private banks', strength: 3.4, phase: 'Early bull', color: '#eaa81e' },
-  { name: 'Auto', strength: 3.0, phase: 'Early bull', color: '#33e29b' },
-  { name: 'Capital goods', strength: 3.6, phase: 'Mid bull', color: '#ffcf5c' },
-  { name: 'Metals', strength: 2.2, phase: 'Peak', color: '#f97316' },
-  { name: 'Energy', strength: 1.8, phase: 'Peak', color: '#ff8b3d' },
-  { name: 'FMCG', strength: 1.2, phase: 'Slowdown', color: '#a78bfa' },
-  { name: 'Pharma', strength: 1.5, phase: 'Slowdown', color: '#8b5cf6' },
-  { name: 'Utilities', strength: 1.0, phase: 'Recession', color: '#4b6ba8' },
+  { name: 'IT', strength: 2.6, phase: 'Late bull', color: token('ink-2') },
+  { name: 'Private banks', strength: 3.4, phase: 'Early bull', color: token('accent') },
+  { name: 'Auto', strength: 3.0, phase: 'Early bull', color: token('accent') },
+  { name: 'Capital goods', strength: 3.6, phase: 'Mid bull', color: token('accent') },
+  { name: 'Metals', strength: 2.2, phase: 'Peak', color: token('ink-2') },
+  { name: 'Energy', strength: 1.8, phase: 'Peak', color: token('ink-2') },
+  { name: 'FMCG', strength: 1.2, phase: 'Slowdown', color: token('ink-3') },
+  { name: 'Pharma', strength: 1.5, phase: 'Slowdown', color: token('ink-3') },
+  { name: 'Utilities', strength: 1.0, phase: 'Recession', color: token('hairline-strong') },
 ]
 
 function SectorPillar({ sector, index, total, sweep, setHovered, hovered }) {
@@ -45,11 +47,11 @@ function SectorPillar({ sector, index, total, sweep, setHovered, hovered }) {
           roughness={0.3}
         />
       </mesh>
-      <Label position={[0, sector.strength + 0.45, 0]} size="xs" tone={active || lit ? 'gold' : 'default'}>
+      <Label position={[0, sector.strength + 0.45, 0]} size="xs" tone={active || lit ? 'accent' : 'default'}>
         {sector.name}
       </Label>
       {active && (
-        <Label position={[0, sector.strength + 0.95, 0]} size="xs" tone="mint">
+        <Label position={[0, sector.strength + 0.95, 0]} size="xs" tone="accent">
           {sector.phase}
         </Label>
       )}
@@ -61,35 +63,36 @@ export default function Rotation3D() {
   const hand = useRef()
   const [hovered, setHovered] = useState(null)
   const sweepRef = useRef(0)
-  const [, force] = useState(0)
 
-  useFrame((state) => {
-    const sweep = state.clock.elapsedTime * 0.35
+  // One sweep of the cycle on arrival. It used to run off the clock forever and
+  // force a React commit every few frames to keep the lit pillar in step, which
+  // re-invalidated the loop through the reconciler and fed itself.
+  const entrance = useEntrance(3000)
+  useFrame(() => {
+    const sweep = entrance() * Math.PI * 2
     sweepRef.current = sweep
     if (hand.current) hand.current.rotation.y = -sweep
-    // cheap re-render so the lit pillar keeps up with the hand
-    if (Math.floor(sweep * 4) !== Math.floor((sweep - 0.02) * 4)) force((n) => n + 1)
   })
 
   return (
     <group position={[0, -1.8, 0]}>
-      <gridHelper args={[16, 16, '#1c2a48', '#121c33']} />
+      <gridHelper args={[16, 16, token('hairline-strong'), token('hairline')]} />
 
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.04, 0]}>
         <ringGeometry args={[3.9, 4.9, 64]} />
-        <meshBasicMaterial color="#14315c" transparent opacity={0.55} />
+        <meshBasicMaterial color={token('hairline')} transparent opacity={0.55} />
       </mesh>
 
       <group ref={hand}>
         <mesh position={[2.1, 0.12, 0]}>
           <boxGeometry args={[4.2, 0.06, 0.16]} />
-          <meshStandardMaterial color="#eaa81e" emissive="#eaa81e" emissiveIntensity={0.8} />
+          <meshStandardMaterial color={token('accent')} />
         </mesh>
       </group>
 
       <mesh position={[0, 0.5, 0]}>
         <sphereGeometry args={[0.5, 24, 24]} />
-        <meshStandardMaterial color="#0b1c38" emissive="#eaa81e" emissiveIntensity={0.25} metalness={0.7} roughness={0.25} />
+        <meshStandardMaterial color={token('hairline-strong')} metalness={0.7} roughness={0.25} />
       </mesh>
 
       {SECTORS.map((sector, i) => (
@@ -104,7 +107,7 @@ export default function Rotation3D() {
         />
       ))}
 
-      <Label position={[0, 5.4, 0]} tone="gold">
+      <Label position={[0, 5.4, 0]} tone="accent">
         money rotates, it rarely leaves
       </Label>
       <Label position={[0, -0.6, 0]} size="xs">

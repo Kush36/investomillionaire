@@ -2,6 +2,7 @@ import { useMemo, useRef, useState } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { Line } from '@react-three/drei'
 import Label from './Label.jsx'
+import { token } from './Scene.jsx'
 
 const YEARS = 25
 
@@ -13,13 +14,13 @@ const PRESETS = {
     series: [
       {
         name: 'SIP from age 25',
-        color: '#eaa81e',
+        color: token('accent'),
         note: 'Starts early, ends far ahead',
         value: (year) => sipCorpus(10000, 0.12, year),
       },
       {
         name: 'SIP from age 35',
-        color: '#8b5cf6',
+        color: token('ink-3'),
         note: 'Same amount, ten years late',
         value: (year) => sipCorpus(10000, 0.12, Math.max(0, year - 10)),
       },
@@ -31,13 +32,13 @@ const PRESETS = {
     series: [
       {
         name: 'Index fund, 0.2% cost',
-        color: '#33e29b',
+        color: token('gain'),
         note: 'Low cost keeps the compounding',
         value: (year) => sipCorpus(10000, 0.118, year),
       },
       {
         name: 'High cost fund, 1.7%',
-        color: '#ff5d5d',
+        color: token('loss'),
         note: 'Same returns, worse outcome',
         value: (year) => sipCorpus(10000, 0.103, year),
       },
@@ -55,12 +56,12 @@ function sipCorpus(monthly, annualRate, years) {
 function SeriesBars({ series, zOffset, maxValue, spacing, startX, hovered, setHovered }) {
   const group = useRef()
 
-  useFrame((state) => {
-    if (group.current) {
-      // grows in as the diagram loads, then settles
-      const t = Math.min(1, state.clock.elapsedTime / 2.2)
-      group.current.scale.y = t
-    }
+  // The bars grow out of the axis as the diagram arrives, which is the whole point
+  // of a compounding chart: the shape is the argument. It ran off the clock before,
+  // which meant it never ran at all on a demand-rendered canvas.
+  const entrance = useEntrance(2200)
+  useFrame(() => {
+    if (group.current) group.current.scale.y = entrance()
   })
 
   const points = useMemo(() => {
@@ -102,7 +103,7 @@ function SeriesBars({ series, zOffset, maxValue, spacing, startX, hovered, setHo
         })}
       </group>
       <Line points={points} color={series.color} lineWidth={2.5} />
-      <Label position={[startX + YEARS * spacing + 1.2, (series.value(YEARS) / maxValue) * 5, zOffset]} size="xs" tone="gold">
+      <Label position={[startX + YEARS * spacing + 1.2, (series.value(YEARS) / maxValue) * 5, zOffset]} size="xs" tone="accent">
         {`${series.value(YEARS).toFixed(1)} L`}
       </Label>
     </group>
@@ -122,7 +123,7 @@ export default function Compound3D({ preset = 'growth' }) {
 
   return (
     <group position={[0, -2.4, 0]}>
-      <gridHelper args={[14, 14, '#1c2a48', '#121c33']} />
+      <gridHelper args={[14, 14, token('hairline-strong'), token('hairline')]} />
 
       {config.series.map((series, i) => (
         <SeriesBars
@@ -138,19 +139,19 @@ export default function Compound3D({ preset = 'growth' }) {
       ))}
 
       {config.series.map((series, i) => (
-        <Label key={series.name} position={[startX - 1.6, 4.6 - i * 0.7, i === 0 ? -0.9 : 0.9]} size="xs" tone={i === 0 ? 'gold' : 'flame'}>
+        <Label key={series.name} position={[startX - 1.6, 4.6 - i * 0.7, i === 0 ? -0.9 : 0.9]} size="xs" tone={i === 0 ? 'accent' : 'default'}>
           {series.name}
         </Label>
       ))}
 
-      <Label position={[0, 6.1, 0]} tone="gold">
+      <Label position={[0, 6.1, 0]} tone="accent">
         {config.caption}
       </Label>
       <Label position={[0, -0.5, 0]} size="xs">
         {`year 0 → ${YEARS} · ${config.unit}`}
       </Label>
       {hovered && (
-        <Label position={[0, 5.4, 0]} size="xs" tone="mint">
+        <Label position={[0, 5.4, 0]} size="xs" tone="accent">
           {config.series.find((s) => hovered.startsWith(s.name))?.note}
         </Label>
       )}

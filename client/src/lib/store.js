@@ -5,13 +5,40 @@ export const useAuth = create((set) => ({
   user: null,
   loading: true,
 
+  // The watchlist lives beside the user rather than inside either page that uses it.
+  // Two pages read it — the analyzer, to decide whether its control says add or
+  // remove, and the dashboard, to draw the list — and two independent copies is how
+  // those two start disagreeing about what is on it.
+  //
+  // null means not fetched yet. An empty array means fetched and genuinely empty, and
+  // the two render as different things.
+  watchlist: null,
+  watchlistCap: null,
+
+  async loadWatchlist() {
+    const { watchlist, cap } = await api('/analyze/watchlist')
+    set({ watchlist, watchlistCap: cap })
+  },
+
+  // Every watchlist endpoint answers with the whole list, so none of these three has
+  // to reconstruct it locally and none of them can drift from what was stored.
+  async addToWatchlist(isin) {
+    const { watchlist, cap } = await api('/analyze/watchlist', { method: 'POST', body: { isin } })
+    set({ watchlist, watchlistCap: cap })
+  },
+
+  async removeFromWatchlist(isin) {
+    const { watchlist, cap } = await api(`/analyze/watchlist/${encodeURIComponent(isin)}`, { method: 'DELETE' })
+    set({ watchlist, watchlistCap: cap })
+  },
+
   async bootstrap() {
     try {
       const { user } = await api('/auth/me')
       set({ user, loading: false })
     } catch {
       setToken(null)
-      set({ user: null, loading: false })
+      set({ user: null, loading: false, watchlist: null, watchlistCap: null })
     }
   },
 
@@ -24,7 +51,7 @@ export const useAuth = create((set) => ({
   async signupVerify(payload) {
     const { token, user } = await api('/auth/signup/verify', { method: 'POST', body: payload, auth: false })
     setToken(token)
-    set({ user })
+    set({ user, watchlist: null, watchlistCap: null })
   },
 
   async resendSignupCode(email) {
@@ -38,18 +65,20 @@ export const useAuth = create((set) => ({
   async resetPassword(payload) {
     const { token, user } = await api('/auth/reset', { method: 'POST', body: payload, auth: false })
     setToken(token)
-    set({ user })
+    set({ user, watchlist: null, watchlistCap: null })
   },
 
   async login(payload) {
     const { token, user } = await api('/auth/login', { method: 'POST', body: payload, auth: false })
     setToken(token)
-    set({ user })
+    set({ user, watchlist: null, watchlistCap: null })
   },
 
   logout() {
     setToken(null)
-    set({ user: null })
+    // The list is cleared with the session, not left in memory for whoever signs in
+    // on this browser next.
+    set({ user: null, watchlist: null, watchlistCap: null })
   },
 
   setUser: (user) => set({ user }),

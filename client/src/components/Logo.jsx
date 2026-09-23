@@ -7,12 +7,12 @@ export default function Logo({ size = 'md', withText = true }) {
       <img
         src="/logo.jpg"
         alt="InvestoMillionaire"
-        className={`${dims} rounded-xl object-cover ring-1 ring-gold/40 transition group-hover:ring-gold`}
+        className={`${dims} rounded-xl object-cover ring-1 ring-hairline transition group-hover:ring-hairline-strong`}
       />
       {withText && (
         <span className="leading-none">
-          <span className="block text-[15px] font-extrabold tracking-tight text-white">INVESTO</span>
-          <span className="block text-[11px] font-bold tracking-[0.25em] text-gold">MILLIONAIRE</span>
+          <span className="block font-display text-[19px] leading-none tracking-tight text-ink">INVESTO</span>
+          <span className="block font-mono text-[11px] font-medium tracking-[0.18em] text-brass">MILLIONAIRE</span>
         </span>
       )}
     </Link>

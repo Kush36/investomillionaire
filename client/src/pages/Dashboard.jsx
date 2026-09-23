@@ -1,17 +1,23 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Zap, Flame, Target, BookOpenCheck } from 'lucide-react'
 import { api } from '../lib/api.js'
 import { useAuth, rankFor, BADGE_META } from '../lib/store.js'
 import { LESSONS, TRACK_META } from '../data/lessons.js'
 import Seo from '../components/Seo.jsx'
 
-function Stat({ icon: Icon, value, label, color }) {
+// Every figure on this page is a readout. That is not a formatting preference:
+// the XP number ticks, the lesson count is a fraction, and the score column is a
+// table. Proportional digits in any of those means the row reflows as the value
+// changes and the decimal points stop lining up.
+//
+// The icon that used to sit above each figure is gone. Four ink-3 glyphs that
+// repeat the word underneath them are the kind of decoration a page reaches for
+// when it does not trust its own spacing.
+function Stat({ value, label }) {
   return (
-    <div className="glass rounded-2xl p-5">
-      <Icon size={20} style={{ color }} />
-      <div className="mt-3 text-3xl font-extrabold">{value}</div>
-      <div className="font-mono text-[10px] tracking-widest text-white/35 uppercase">{label}</div>
+    <div className="panel p-[var(--space-4)]">
+      <div className="readout text-[length:var(--text-heading)] text-ink">{value}</div>
+      <div className="mt-[var(--space-1)] text-[length:var(--text-small)] text-ink-3">{label}</div>
     </div>
   )
 }
@@ -21,48 +27,157 @@ function TrackProgress({ track, levels }) {
   const cleared = levels.filter((l) => l.passed).length
 
   return (
-    <div className="glass rounded-2xl p-6">
+    <div className="panel p-[var(--space-4)]">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="text-xl">{meta.emoji}</span>
-          <h3 className="font-bold">{meta.label}</h3>
+        <div className="flex items-center gap-[var(--space-1)]">
+          <span>{meta.emoji}</span>
+          <h3>{meta.label}</h3>
         </div>
-        <span className="font-mono text-xs" style={{ color: meta.accent }}>
+        <span className="readout text-[length:var(--text-small)] text-ink-3">
           {cleared}/{levels.length}
         </span>
       </div>
 
-      <div className="mt-4 flex gap-1.5">
+      {/* Cleared segments are ink, not mulberry. Two of these cards sit side by
+          side, so an accent here would put the page's scarce colour on ten bars
+          at once and leave the rank bar in the hero with nothing to say. */}
+      <div className="mt-[var(--space-3)] flex gap-1">
         {levels.map((level) => (
           <div
             key={level.level}
-            className="h-2 flex-1 rounded-full"
-            style={{ background: level.passed ? meta.accent : level.unlocked ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.06)' }}
+            className={`h-1.5 flex-1 rounded-full ${
+              level.passed ? 'bg-ink-2' : level.unlocked ? 'bg-hairline-strong' : 'bg-surface-2'
+            }`}
           />
         ))}
       </div>
 
-      <ul className="mt-5 space-y-2">
+      <ul className="mt-[var(--space-4)] space-y-[var(--space-1)]">
         {levels.map((level) => (
-          <li key={level.level} className="flex items-center justify-between text-sm">
-            <span className={level.unlocked ? 'text-white/70' : 'text-white/30'}>
+          <li key={level.level} className="flex items-center justify-between gap-[var(--space-3)] text-sm">
+            <span className={level.unlocked ? 'text-ink-2' : 'text-ink-3'}>
               {level.level}. {level.title}
             </span>
-            <span className="font-mono text-xs" style={{ color: level.passed ? meta.accent : 'rgba(255,255,255,0.3)' }}>
+            <span className={`readout shrink-0 text-[length:var(--text-micro)] ${level.passed ? 'text-ink' : 'text-ink-3'}`}>
               {level.attempts > 0 ? `${level.bestScore}%` : level.unlocked ? 'open' : 'locked'}
             </span>
           </li>
         ))}
       </ul>
 
+      {/* A hairline-ringed link rather than a filled button. There are two of
+          these on screen and they are peers, so neither is "the one action"
+          mulberry is reserved for. */}
       <Link
         to={`/quiz`}
-        className="mt-5 inline-block rounded-full px-5 py-2 text-sm font-bold text-ink"
-        style={{ background: meta.accent }}
+        className="mt-[var(--space-4)] inline-block rounded-full px-[var(--space-3)] py-[var(--space-1)] text-sm text-ink ring-1 ring-hairline-strong transition hover:bg-surface-2"
       >
         {cleared === levels.length ? 'Revise' : 'Continue'}
       </Link>
     </div>
+  )
+}
+
+/**
+ * The saved companies, newest first, as the server returns them.
+ *
+ * Each row prints the name and symbol recorded when the entry was added rather than
+ * one looked up now. The list has to render when the NSE equity list is unreachable,
+ * and the analyzer re-identifies the ISIN on the way to a report regardless, so a
+ * lookup here would buy a second failure mode and nothing else.
+ *
+ * Analyse is a link carrying the ISIN, never the ticker: a symbol freed by a delisting
+ * can be reassigned, and a link keyed on one would quietly start opening a different
+ * company.
+ */
+function Watchlist() {
+  const { watchlist, watchlistCap, loadWatchlist, removeFromWatchlist } = useAuth()
+  const [removing, setRemoving] = useState('')
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    loadWatchlist().catch((err) => setError(err.message))
+  }, [loadWatchlist])
+
+  async function remove(isin) {
+    setRemoving(isin)
+    setError('')
+    try {
+      await removeFromWatchlist(isin)
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setRemoving('')
+    }
+  }
+
+  return (
+    <section className="mt-[var(--space-7)]">
+      <div className="flex flex-wrap items-baseline justify-between gap-[var(--space-2)]">
+        <h2>Watchlist</h2>
+        {watchlist && watchlistCap != null && (
+          <p className="eyebrow">
+            {watchlist.length} of {watchlistCap}
+          </p>
+        )}
+      </div>
+
+      {error && (
+        <p className="mt-[var(--space-3)] text-sm text-loss" role="status">
+          {error}
+        </p>
+      )}
+
+      {/* Not loaded and loaded-but-empty are different things and say so. A nought
+          drawn before the reply lands is a figure the page has not earned yet. */}
+      {watchlist === null ? (
+        <p className="mt-[var(--space-4)] text-sm text-ink-3">Loading your list…</p>
+      ) : watchlist.length === 0 ? (
+        <p className="well mt-[var(--space-4)] p-[var(--space-4)] text-sm leading-relaxed text-ink-2">
+          Nothing saved yet.{' '}
+          <Link to="/analyze" className="text-ink underline decoration-1 underline-offset-4">
+            Find a listing
+          </Link>{' '}
+          and add it here to run its report again without searching for it.
+        </p>
+      ) : (
+        <ul className="well mt-[var(--space-4)]">
+          {watchlist.map((entry) => (
+            <li
+              key={entry.isin}
+              className="flex flex-wrap items-center justify-between gap-[var(--space-2)] border-t border-hairline p-[var(--space-3)] first:border-t-0"
+            >
+              <div className="min-w-0">
+                <p className="truncate text-ink">{entry.name}</p>
+                <p className="readout mt-[var(--space-1)] text-[length:var(--text-micro)] text-ink-3">
+                  {entry.symbol} · {entry.isin}
+                  {entry.addedAt
+                    ? ` · added ${new Date(entry.addedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}`
+                    : ''}
+                </p>
+              </div>
+
+              <div className="flex shrink-0 items-center gap-[var(--space-2)]">
+                <Link
+                  to={`/analyze?isin=${encodeURIComponent(entry.isin)}`}
+                  className="inline-flex min-h-11 items-center rounded-full px-[var(--space-3)] text-sm text-ink ring-1 ring-hairline-strong transition hover:bg-surface-2"
+                >
+                  Analyse
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => remove(entry.isin)}
+                  disabled={removing === entry.isin}
+                  className="inline-flex min-h-11 items-center rounded-full px-[var(--space-3)] text-sm text-ink-3 transition hover:text-ink disabled:opacity-50"
+                >
+                  {removing === entry.isin ? 'Removing…' : 'Remove'}
+                </button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   )
 }
 
@@ -81,47 +196,60 @@ export default function Dashboard() {
   const totalLessons = LESSONS.fundamental.length + LESSONS.technical.length
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
+    <div className="mx-auto max-w-6xl px-4 py-[var(--space-6)] sm:px-6">
       <Seo title="Your progress" description="Your XP, streak, badges and level progress." noindex />
-      <h1 className="text-4xl font-extrabold sm:text-5xl">
-        Hey, <span className="gold-text">{user.name.split(' ')[0]}</span>
-      </h1>
-      <p className="mt-2 text-white/55">
-        Rank: <span className="font-bold text-gold">{rank.current.name}</span>
-        {rank.next && <span className="text-white/40"> · {rank.next.min - user.xp} XP to {rank.next.name}</span>}
+
+      {/* The one serif line on the page, on the thing the page is actually
+          about, which is this person. */}
+      <h1 className="display">Hey, {user.name.split(' ')[0]}</h1>
+
+      <p className="mt-[var(--space-3)] text-ink-2">
+        Rank: <span className="text-ink">{rank.current.name}</span>
+        {rank.next && (
+          <span className="text-ink-3">
+            {' · '}
+            <span className="readout">{rank.next.min - user.xp}</span> XP to {rank.next.name}
+          </span>
+        )}
       </p>
 
-      <div className="mt-5 h-2.5 overflow-hidden rounded-full bg-white/8">
+      {/* The single accent on this page. It is the one figure the page exists to
+          report, so it gets the one colour. */}
+      <div className="mt-[var(--space-3)] h-1.5 overflow-hidden rounded-full bg-surface-2">
         <div
-          className="h-full rounded-full bg-gradient-to-r from-gold to-gold-soft transition-[width] duration-700"
+          className="h-full rounded-full bg-accent transition-[width] duration-[var(--dur-data)] ease-[var(--ease-data)]"
           style={{ width: `${rank.progress * 100}%` }}
         />
       </div>
 
-      <div className="mt-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <Stat icon={Zap} value={user.xp} label="total XP" color="#eaa81e" />
-        <Stat icon={Flame} value={user.streak} label="day streak" color="#ff5d5d" />
-        <Stat icon={BookOpenCheck} value={`${user.lessonsRead?.length ?? 0}/${totalLessons}`} label="lessons read" color="#33e29b" />
-        <Stat icon={Target} value={user.badges?.length ?? 0} label="badges" color="#8b5cf6" />
+      <div className="mt-[var(--space-5)] grid grid-cols-2 gap-[var(--space-2)] lg:grid-cols-4">
+        <Stat value={user.xp} label="total XP" />
+        <Stat value={user.streak} label="day streak" />
+        <Stat value={`${user.lessonsRead?.length ?? 0}/${totalLessons}`} label="lessons read" />
+        <Stat value={user.badges?.length ?? 0} label="badges" />
       </div>
 
       {levels && (
-        <div className="mt-10 grid gap-5 lg:grid-cols-2">
+        <div className="mt-[var(--space-5)] grid gap-[var(--space-3)] lg:grid-cols-2">
           <TrackProgress track="fundamental" levels={levels.fundamental} />
           <TrackProgress track="technical" levels={levels.technical} />
         </div>
       )}
 
-      <section className="mt-12">
-        <h2 className="text-2xl font-bold">Badges</h2>
-        <div className="mt-5 grid gap-4 sm:grid-cols-3 lg:grid-cols-4">
+      <Watchlist />
+
+      {/* Sections are separated by air, not by rules or tinted bands. space-7
+          between sections against space-1 inside a card is the beat. */}
+      <section className="mt-[var(--space-7)]">
+        <h2>Badges</h2>
+        <div className="mt-[var(--space-4)] grid gap-[var(--space-3)] sm:grid-cols-3 lg:grid-cols-4">
           {Object.entries(BADGE_META).map(([key, badge]) => {
             const earned = user.badges?.includes(key)
             return (
-              <div key={key} className={`glass rounded-2xl p-5 text-center ${earned ? '' : 'opacity-35 grayscale'}`}>
-                <div className="text-3xl">{badge.emoji}</div>
-                <h4 className="mt-2 text-sm font-bold">{badge.label}</h4>
-                <p className="mt-1 text-xs text-white/45">{badge.note}</p>
+              <div key={key} className={`panel p-[var(--space-4)] text-center ${earned ? '' : 'opacity-35 grayscale'}`}>
+                <div className="text-[length:var(--text-heading)]">{badge.emoji}</div>
+                <h4 className="mt-[var(--space-1)] text-sm text-ink">{badge.label}</h4>
+                <p className="mt-1 text-[length:var(--text-micro)] text-ink-3">{badge.note}</p>
               </div>
             )
           })}
@@ -129,35 +257,46 @@ export default function Dashboard() {
       </section>
 
       {history.length > 0 && (
-        <section className="mt-12">
-          <h2 className="text-2xl font-bold">Recent attempts</h2>
-          <div className="glass mt-5 overflow-hidden rounded-2xl">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-white/5 font-mono text-[10px] tracking-widest text-white/40 uppercase">
-                <tr>
-                  <th className="px-5 py-3">Track</th>
-                  <th className="px-5 py-3">Level</th>
-                  <th className="px-5 py-3">Score</th>
-                  <th className="px-5 py-3">XP</th>
-                  <th className="hidden px-5 py-3 sm:table-cell">When</th>
-                </tr>
-              </thead>
-              <tbody>
-                {history.map((attempt) => (
-                  <tr key={attempt._id} className="border-t border-white/5">
-                    <td className="px-5 py-3 capitalize">{attempt.track}</td>
-                    <td className="px-5 py-3">{attempt.level}</td>
-                    <td className="px-5 py-3 font-mono" style={{ color: attempt.passed ? '#33e29b' : '#ff5d5d' }}>
-                      {attempt.percent}%
-                    </td>
-                    <td className="px-5 py-3 font-mono text-gold">+{attempt.xpEarned}</td>
-                    <td className="hidden px-5 py-3 text-white/40 sm:table-cell">
-                      {new Date(attempt.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
-                    </td>
+        <section className="mt-[var(--space-7)]">
+          <h2>Recent attempts</h2>
+          <div className="panel mt-[var(--space-4)] overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead className="eyebrow bg-surface-2">
+                  <tr>
+                    <th className="px-[var(--space-3)] py-[var(--space-2)]">Track</th>
+                    <th className="px-[var(--space-3)] py-[var(--space-2)]">Level</th>
+                    <th className="px-[var(--space-3)] py-[var(--space-2)] text-right">Score</th>
+                    <th className="px-[var(--space-3)] py-[var(--space-2)] text-right">XP</th>
+                    <th className="hidden px-[var(--space-3)] py-[var(--space-2)] text-right sm:table-cell">When</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {history.map((attempt) => (
+                    <tr key={attempt._id} className="border-t border-hairline">
+                      <td className="px-[var(--space-3)] py-[var(--space-2)] text-ink-2 capitalize">{attempt.track}</td>
+                      <td className="readout px-[var(--space-3)] py-[var(--space-2)] text-ink-2">{attempt.level}</td>
+                      {/* Numeric columns right-align so the units stack. A
+                          left-ragged percentage column is the tell of a table
+                          nobody set. */}
+                      <td
+                        className={`readout px-[var(--space-3)] py-[var(--space-2)] text-right ${
+                          attempt.passed ? 'text-gain' : 'text-loss'
+                        }`}
+                      >
+                        {attempt.percent}%
+                      </td>
+                      <td className="readout px-[var(--space-3)] py-[var(--space-2)] text-right text-ink">
+                        +{attempt.xpEarned}
+                      </td>
+                      <td className="readout hidden px-[var(--space-3)] py-[var(--space-2)] text-right text-ink-3 sm:table-cell">
+                        {new Date(attempt.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </section>
       )}

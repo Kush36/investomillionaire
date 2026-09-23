@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { useFrame } from '@react-three/fiber'
 import Label from './Label.jsx'
+import { token } from './Scene.jsx'
 
 const BIDS = [
   { price: 249.9, qty: 1.8 },
@@ -21,15 +22,8 @@ const ASKS = [
 function Level({ entry, z, side, index }) {
   const mesh = useRef()
   const [hovered, setHovered] = useState(false)
-  const color = side === 'bid' ? '#33e29b' : '#ff5d5d'
+  const color = side === 'bid' ? token('gain') : token('loss')
   const x = side === 'bid' ? -entry.qty / 2 - 0.35 : entry.qty / 2 + 0.35
-
-  useFrame((state) => {
-    if (mesh.current) {
-      const pulse = 1 + Math.sin(state.clock.elapsedTime * 2 + index) * 0.05
-      mesh.current.scale.x = pulse
-    }
-  })
 
   return (
     <group position={[0, 0, z]}>
@@ -51,7 +45,7 @@ function Level({ entry, z, side, index }) {
           opacity={0.9}
         />
       </mesh>
-      <Label position={[x, 0.75, 0]} size="xs" tone={side === 'bid' ? 'mint' : 'flame'}>
+      <Label position={[x, 0.75, 0]} size="xs" tone={side === 'bid' ? 'gain' : 'loss'}>
         {`${entry.price} × ${(entry.qty * 400).toFixed(0)}`}
       </Label>
     </group>
@@ -61,7 +55,7 @@ function Level({ entry, z, side, index }) {
 export default function OrderBook3D() {
   return (
     <group position={[0, -0.6, 0]} rotation={[0, -0.25, 0]}>
-      <gridHelper args={[14, 14, '#1c2a48', '#121c33']} position={[0, -0.1, 0]} />
+      <gridHelper args={[14, 14, token('hairline-strong'), token('hairline')]} position={[0, -0.1, 0]} />
 
       {BIDS.map((entry, i) => (
         <Level key={entry.price} entry={entry} z={-i * 0.85 - 0.6} side="bid" index={i} />
@@ -73,16 +67,16 @@ export default function OrderBook3D() {
       {/* the spread: the real, quiet cost of every round trip */}
       <mesh position={[0, 0.2, -2.4]}>
         <boxGeometry args={[0.5, 2.4, 5]} />
-        <meshBasicMaterial color="#eaa81e" transparent opacity={0.12} depthWrite={false} />
+        <meshBasicMaterial color={token('accent')} transparent opacity={0.12} depthWrite={false} />
       </mesh>
 
-      <Label position={[0, 2.1, -2.4]} tone="gold">
+      <Label position={[0, 2.1, -2.4]} tone="accent">
         spread 249.90 / 250.10
       </Label>
-      <Label position={[-3.4, 1.6, 0]} tone="mint">
+      <Label position={[-3.4, 1.6, 0]} tone="gain">
         BIDS · buyers
       </Label>
-      <Label position={[3.4, 1.6, 0]} tone="flame">
+      <Label position={[3.4, 1.6, 0]} tone="loss">
         ASKS · sellers
       </Label>
       <Label position={[0, -0.9, 1.2]} size="xs">

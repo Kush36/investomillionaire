@@ -2,19 +2,44 @@ import { useEffect, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import { ExternalLink, RefreshCw, Search, TrendingUp, TrendingDown, Minus, Clock } from 'lucide-react'
 import Seo from '../components/Seo.jsx'
+import Chip from '../components/Chip.jsx'
+import Notice from '../components/Notice.jsx'
 import { API_BASE } from '../lib/api.js'
 
 const MOODS = [
-  { key: 'All', label: 'Everything', icon: Minus, color: '#eaa81e' },
-  { key: 'bullish', label: 'Bullish', icon: TrendingUp, color: '#33e29b' },
-  { key: 'bearish', label: 'Bearish', icon: TrendingDown, color: '#ff5d5d' },
-  { key: 'neutral', label: 'Neutral', icon: Minus, color: '#8b5cf6' },
+  { key: 'All', label: 'Everything', icon: Minus },
+  { key: 'bullish', label: 'Bullish', icon: TrendingUp },
+  { key: 'bearish', label: 'Bearish', icon: TrendingDown },
+  { key: 'neutral', label: 'Neutral', icon: Minus },
 ]
 
+// The copy promises headlines tagged by tone, and the old tag drew all three
+// tones in the same ink behind the same hairline, which made the promise a lie.
+// Tone here is a judgement about a headline, not realised profit and loss, so
+// the gain and loss inks are not available and colour cannot carry it. The
+// ladder is ink strength and ring strength instead: a directional tag sits at
+// full ink behind a strong hairline, a neutral one recedes to ink-3 behind the
+// ordinary one. Which direction it points is the arrow's job.
 const MOOD_STYLE = {
-  bullish: { color: '#33e29b', label: 'BULLISH', icon: TrendingUp },
-  bearish: { color: '#ff5d5d', label: 'BEARISH', icon: TrendingDown },
-  neutral: { color: '#8b5cf6', label: 'NEUTRAL', icon: Minus },
+  bullish: { label: 'BULLISH', icon: TrendingUp, ink: 'var(--color-ink)', ring: 'var(--color-hairline-strong)' },
+  bearish: { label: 'BEARISH', icon: TrendingDown, ink: 'var(--color-ink)', ring: 'var(--color-hairline-strong)' },
+  neutral: { label: 'NEUTRAL', icon: Minus, ink: 'var(--color-ink-3)', ring: 'var(--color-hairline)' },
+}
+
+// Chip spreads its rest props after its own style attribute, so a style prop
+// replaces that object rather than merging into it. The micro size has to be
+// restated or the chip grows; colour and ring are the two things this varies.
+function chipInk({ ink, ring }) {
+  return { color: ink, fontSize: 'var(--text-micro)', boxShadow: `inset 0 0 0 1px ${ring}` }
+}
+
+// Filter state is read by ink and ring, never by a fill, so nothing on the row
+// shifts when the selection moves and no pill becomes a coloured block. The
+// ring is inset for the same reason it is inset on a chip: it costs no width.
+function pillStyle(active, activeInk) {
+  return active
+    ? { color: activeInk, boxShadow: `inset 0 0 0 1px ${activeInk}` }
+    : { color: 'var(--color-ink-3)', boxShadow: 'inset 0 0 0 1px var(--color-hairline)' }
 }
 
 function timeAgo(iso) {
@@ -31,17 +56,13 @@ function MoodTag({ mood }) {
   const style = MOOD_STYLE[mood] ?? MOOD_STYLE.neutral
   const Icon = style.icon
   return (
-    <span
-      className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 font-mono text-[10px] font-bold tracking-widest"
-      style={{ background: `${style.color}1f`, color: style.color }}
-    >
-      <Icon size={11} /> {style.label}
-    </span>
+    <Chip style={chipInk(style)}>
+      <Icon size={11} aria-hidden="true" /> {style.label}
+    </Chip>
   )
 }
 
 function FeaturedCard({ article }) {
-  const style = MOOD_STYLE[article.mood] ?? MOOD_STYLE.neutral
   return (
     <motion.a
       href={article.link}
@@ -49,33 +70,32 @@ function FeaturedCard({ article }) {
       rel="noreferrer noopener"
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="glass group relative flex min-h-[320px] flex-col justify-end overflow-hidden rounded-3xl p-8"
+      className="panel group relative flex min-h-[360px] flex-col justify-end overflow-hidden p-[var(--space-5)] sm:min-h-[440px]"
     >
       {article.image && (
         <img
           src={article.image}
           alt=""
           loading="lazy"
-          className="absolute inset-0 h-full w-full object-cover opacity-25 transition duration-700 group-hover:scale-105 group-hover:opacity-35"
+          className="absolute inset-0 h-full w-full object-cover transition duration-700 group-hover:scale-105"
         />
       )}
-      <div className="absolute inset-0 bg-gradient-to-t from-ink via-ink/80 to-transparent" />
-      <div
-        className="absolute -top-24 -right-16 h-64 w-64 rounded-full blur-[90px]"
-        style={{ background: style.color, opacity: 0.18 }}
-      />
+      <div className="absolute inset-0 bg-gradient-to-t from-canvas via-canvas/90 to-transparent" />
       <div className="relative">
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-[var(--space-2)]">
           <MoodTag mood={article.mood} />
-          <span className="font-mono text-[10px] tracking-widest text-white/45 uppercase">{article.source}</span>
-          <span className="flex items-center gap-1 font-mono text-[10px] text-white/35">
-            <Clock size={11} /> {timeAgo(article.publishedAt)}
+          <span className="eyebrow">{article.source}</span>
+          <span className="eyebrow flex items-center gap-1">
+            <Clock size={11} aria-hidden="true" /> {timeAgo(article.publishedAt)}
           </span>
         </div>
-        <h2 className="mt-4 text-2xl leading-tight font-extrabold sm:text-4xl">{article.title}</h2>
-        {article.summary && <p className="mt-3 max-w-2xl text-white/60">{article.summary}</p>}
-        <span className="mt-5 inline-flex items-center gap-2 text-sm font-bold text-gold">
-          Read the full story <ExternalLink size={14} />
+        {/* The first item is stronger by size alone: title scale against the
+            17px of every other card, not a second colour and not a heavier
+            weight. */}
+        <h2 className="mt-[var(--space-3)] max-w-[var(--measure)] text-2xl leading-tight sm:text-4xl">{article.title}</h2>
+        {article.summary && <p className="prose mt-[var(--space-2)] text-ink-2">{article.summary}</p>}
+        <span className="mt-[var(--space-4)] inline-flex items-center gap-2 text-sm text-accent">
+          Read the full story <ExternalLink size={14} aria-hidden="true" />
         </span>
       </div>
     </motion.a>
@@ -83,7 +103,6 @@ function FeaturedCard({ article }) {
 }
 
 function NewsCard({ article, index }) {
-  const style = MOOD_STYLE[article.mood] ?? MOOD_STYLE.neutral
   return (
     <motion.a
       href={article.link}
@@ -92,18 +111,21 @@ function NewsCard({ article, index }) {
       initial={{ opacity: 0, y: 18 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: Math.min(index * 0.03, 0.4) }}
-      className="glass group relative flex flex-col overflow-hidden rounded-2xl p-6 transition hover:-translate-y-1 hover:border-white/25"
+      className="panel group relative flex flex-col overflow-hidden p-[var(--space-4)] transition hover:shadow-low"
     >
-      <span className="absolute top-0 left-0 h-full w-[3px]" style={{ background: style.color, opacity: 0.7 }} />
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex items-center justify-between gap-[var(--space-2)]">
         <MoodTag mood={article.mood} />
-        <span className="font-mono text-[10px] text-white/30">{timeAgo(article.publishedAt)}</span>
+        <span className="eyebrow">{timeAgo(article.publishedAt)}</span>
       </div>
-      <h3 className="mt-4 flex-1 text-[17px] leading-snug font-bold transition group-hover:text-gold">{article.title}</h3>
-      {article.summary && <p className="mt-3 line-clamp-3 text-sm leading-relaxed text-white/50">{article.summary}</p>}
-      <div className="mt-5 flex items-center justify-between font-mono text-[10px] tracking-widest text-white/35 uppercase">
+      {/* h3 already carries 17px at 600 from the sheet. Restating either here
+          was two of the declarations that made weight meaningless. */}
+      <h3 className="mt-[var(--space-3)] flex-1 leading-snug">{article.title}</h3>
+      {article.summary && (
+        <p className="mt-[var(--space-2)] line-clamp-3 text-sm leading-relaxed text-ink-2">{article.summary}</p>
+      )}
+      <div className="eyebrow mt-[var(--space-3)] flex items-center justify-between gap-[var(--space-2)]">
         <span>{article.source}</span>
-        <span>{article.readMinutes} min</span>
+        <span className="readout">{article.readMinutes} min</span>
       </div>
     </motion.a>
   )
@@ -111,11 +133,11 @@ function NewsCard({ article, index }) {
 
 function Skeleton() {
   return (
-    <div className="glass h-52 animate-pulse rounded-2xl p-6">
-      <div className="h-3 w-24 rounded bg-white/10" />
-      <div className="mt-5 h-4 w-full rounded bg-white/10" />
-      <div className="mt-2 h-4 w-3/4 rounded bg-white/10" />
-      <div className="mt-6 h-3 w-1/2 rounded bg-white/5" />
+    <div className="panel h-52 p-[var(--space-4)]">
+      <div className="h-3 w-24 rounded bg-hairline" />
+      <div className="mt-[var(--space-4)] h-4 w-full rounded bg-hairline" />
+      <div className="mt-2 h-4 w-3/4 rounded bg-hairline" />
+      <div className="mt-[var(--space-4)] h-3 w-1/2 rounded bg-surface-2" />
     </div>
   )
 }
@@ -175,39 +197,36 @@ export default function News() {
   )
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6">
+    <div className="mx-auto max-w-7xl px-4 py-[var(--space-6)] sm:px-6">
       <Seo title="Indian stock market news" description="Market headlines from Economic Times, Livemint, Business Standard and BusinessLine, filtered to the Indian market and tagged bullish, bearish or neutral." />
-      <div className="flex flex-wrap items-end justify-between gap-6">
+      <div className="flex flex-wrap items-end justify-between gap-[var(--space-4)]">
         <div>
-          <span className="inline-flex items-center gap-2 font-mono text-[11px] tracking-widest text-gold uppercase">
-            <span className="relative flex h-2 w-2">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-mint opacity-75" />
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-mint" />
-            </span>
-            Live feed
-          </span>
-          <h1 className="mt-3 text-4xl font-extrabold sm:text-5xl">Market news</h1>
-          <p className="mt-2 max-w-xl text-white/55">
+          <span className="eyebrow">Live feed</span>
+          {/* The one voice moment on this page. */}
+          <h1 className="display mt-[var(--space-2)]">Market news</h1>
+          <p className="prose mt-[var(--space-3)]">
             Headlines from Economic Times, Livemint, Business Standard and BusinessLine, tagged by tone so you can read
             the mood of a session at a glance.
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="glass hidden items-center gap-4 rounded-2xl px-5 py-3 sm:flex">
-            <div className="text-center">
-              <div className="font-mono text-lg font-bold text-mint">{counts.bullish}</div>
-              <div className="font-mono text-[9px] tracking-widest text-white/35 uppercase">bullish</div>
+        <div className="flex items-center gap-[var(--space-2)]">
+          {/* Left aligned, because a ledger column reads down its left edge and
+              tabular figures only line up if something lines them up. */}
+          <div className="panel hidden items-center gap-[var(--space-4)] px-[var(--space-4)] py-[var(--space-2)] sm:flex">
+            <div>
+              <div className="readout text-2xl text-ink">{counts.bullish}</div>
+              <div className="eyebrow">bullish</div>
             </div>
-            <div className="h-8 w-px bg-white/10" />
-            <div className="text-center">
-              <div className="font-mono text-lg font-bold text-flame">{counts.bearish}</div>
-              <div className="font-mono text-[9px] tracking-widest text-white/35 uppercase">bearish</div>
+            <div className="h-8 w-px bg-hairline" />
+            <div>
+              <div className="readout text-2xl text-ink">{counts.bearish}</div>
+              <div className="eyebrow">bearish</div>
             </div>
           </div>
           <button
             onClick={load}
-            className="glass grid h-12 w-12 place-items-center rounded-2xl transition hover:text-gold"
+            className="panel grid h-12 w-12 place-items-center text-ink-3 transition hover:text-ink"
             aria-label="Refresh news"
           >
             <RefreshCw size={17} className={loading ? 'animate-spin' : ''} />
@@ -216,64 +235,63 @@ export default function News() {
       </div>
 
       {/* filters */}
-      <div className="mt-9 space-y-4">
+      <div className="mt-[var(--space-6)] space-y-[var(--space-3)]">
         <div className="relative">
-          <Search size={16} className="absolute top-1/2 left-4 -translate-y-1/2 text-white/30" />
+          <Search size={16} className="absolute top-1/2 left-4 -translate-y-1/2 text-ink-3" aria-hidden="true" />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search headlines, companies, sectors…"
-            className="w-full rounded-2xl border border-white/10 bg-white/5 py-3.5 pr-4 pl-11 text-sm outline-none transition placeholder:text-white/30 focus:border-gold/50"
+            className="well w-full py-3.5 pr-4 pl-11 text-sm text-ink transition placeholder:text-ink-3"
           />
         </div>
 
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-[var(--space-1)]">
           {MOODS.map((option) => (
             <button
               key={option.key}
               onClick={() => setMood(option.key)}
-              className={`inline-flex items-center gap-1.5 rounded-full border px-4 py-2 font-mono text-[11px] tracking-widest uppercase transition ${
-                mood === option.key ? 'border-transparent text-ink' : 'border-white/10 text-white/50 hover:text-white'
-              }`}
-              style={mood === option.key ? { background: option.color } : undefined}
+              className="eyebrow inline-flex items-center gap-1.5 rounded-full px-[var(--space-3)] py-[var(--space-1)] transition"
+              style={pillStyle(mood === option.key, 'var(--color-accent)')}
             >
-              <option.icon size={12} /> {option.label}
+              <option.icon size={12} aria-hidden="true" /> {option.label}
             </button>
           ))}
         </div>
 
-        <div className="flex flex-wrap gap-2">
+        {/* Category is the second filter, so it never takes the accent. Same
+            ink-and-ring language one step quieter: ink instead of mulberry. */}
+        <div className="flex flex-wrap gap-[var(--space-1)]">
           {categories.map((name) => (
             <button
               key={name}
               onClick={() => setCategory(name)}
-              className={`rounded-full px-4 py-1.5 text-xs font-semibold transition ${
-                category === name ? 'bg-white/15 text-white' : 'bg-white/5 text-white/45 hover:text-white'
-              }`}
+              className="rounded-full px-[var(--space-3)] py-[var(--space-1)] text-sm transition"
+              style={pillStyle(category === name, 'var(--color-ink)')}
             >
               {name}
             </button>
           ))}
         </div>
+
+        {fetchedAt && (
+          <p className="eyebrow">
+            updated {timeAgo(fetchedAt)} · {filtered.length} stories
+          </p>
+        )}
       </div>
 
-      {fetchedAt && (
-        <p className="mt-5 font-mono text-[10px] tracking-widest text-white/25 uppercase">
-          updated {timeAgo(fetchedAt)} · {filtered.length} stories
-        </p>
-      )}
-
       {error && (
-        <div className="mt-8 rounded-2xl border border-flame/30 bg-flame/5 p-6 text-center">
-          <p className="text-flame">{error}</p>
-          <button onClick={load} className="mt-3 text-sm text-white/60 underline">
+        <Notice tone="loss" className="mt-[var(--space-5)]">
+          {error}{' '}
+          <button onClick={load} className="text-ink underline underline-offset-2">
             Try again
           </button>
-        </div>
+        </Notice>
       )}
 
       {loading && items.length === 0 ? (
-        <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-[var(--space-5)] grid gap-[var(--space-3)] sm:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 6 }).map((_, i) => (
             <Skeleton key={i} />
           ))}
@@ -281,17 +299,19 @@ export default function News() {
       ) : (
         <>
           {featured && (
-            <div className="mt-8">
+            <div className="mt-[var(--space-5)]">
               <FeaturedCard article={featured} />
             </div>
           )}
-          <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          {/* Tight between cards, wide above the block. The gap does the
+              grouping, so the cards need no decoration to read as one set. */}
+          <div className="mt-[var(--space-3)] grid gap-[var(--space-3)] sm:grid-cols-2 lg:grid-cols-3">
             {rest.map((article, i) => (
               <NewsCard key={article.id} article={article} index={i} />
             ))}
           </div>
           {filtered.length === 0 && !error && (
-            <p className="mt-16 text-center text-white/40">Nothing matches that filter. Try clearing the search.</p>
+            <p className="mt-[var(--space-7)] text-center text-ink-3">Nothing matches that filter. Try clearing the search.</p>
           )}
         </>
       )}

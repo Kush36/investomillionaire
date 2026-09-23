@@ -1,20 +1,37 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { ExternalLink, RefreshCw, ShieldAlert, Target, Building2, NotebookPen, Clock } from 'lucide-react'
+import { ExternalLink, RefreshCw, Target, Building2, Clock } from 'lucide-react'
 import Seo from '../components/Seo.jsx'
+import Chip from '../components/Chip.jsx'
+import Notice from '../components/Notice.jsx'
 import { API_BASE } from '../lib/api.js'
 
-const RATING_STYLE = {
-  BUY: { color: '#33e29b' },
-  SELL: { color: '#ff5d5d' },
-  HOLD: { color: '#eaa81e' },
+// The stance carried a label and no styling at all, so WATCHING and AVOIDING
+// arrived at the same volume. A stance is a rating, not realised profit and
+// loss, so the gain and loss inks are not available to it. The ladder is ink
+// strength and ring strength: avoiding is the one you have to see, so it sits
+// at full ink behind a strong hairline; watching is the quietest thing on the
+// card and recedes to ink-3.
+const STANCE_STYLE = {
+  watching: { label: 'WATCHING', ink: 'var(--color-ink-3)', ring: 'var(--color-hairline)' },
+  studying: { label: 'STUDYING', ink: 'var(--color-ink-2)', ring: 'var(--color-hairline)' },
+  avoiding: { label: 'AVOIDING', ink: 'var(--color-ink)', ring: 'var(--color-hairline-strong)' },
 }
 
-const STANCE_STYLE = {
-  watching: { color: '#eaa81e', label: 'WATCHING' },
-  studying: { color: '#5ee0ff', label: 'STUDYING' },
-  avoiding: { color: '#ff5d5d', label: 'AVOIDING' },
+// Chip spreads its rest props after its own style attribute, so a style prop
+// replaces that object rather than merging into it. The micro size has to be
+// restated or the chip grows; colour and ring are the two things this varies.
+function chipInk({ ink, ring }) {
+  return { color: ink, fontSize: 'var(--text-micro)', boxShadow: `inset 0 0 0 1px ${ring}` }
+}
+
+// Filter state is read by ink and ring, never by a fill, so nothing on the row
+// shifts when the selection moves and no pill becomes a coloured block.
+function pillStyle(active, activeInk) {
+  return active
+    ? { color: activeInk, boxShadow: `inset 0 0 0 1px ${activeInk}` }
+    : { color: 'var(--color-ink-3)', boxShadow: 'inset 0 0 0 1px var(--color-hairline)' }
 }
 
 function timeAgo(iso) {
@@ -26,7 +43,6 @@ function timeAgo(iso) {
 }
 
 function CallCard({ call, index }) {
-  const rating = call.rating ? RATING_STYLE[call.rating] : null
   return (
     <motion.a
       href={call.link}
@@ -35,43 +51,35 @@ function CallCard({ call, index }) {
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: Math.min(index * 0.03, 0.3) }}
-      className="glass group relative flex flex-col overflow-hidden rounded-2xl p-6 transition hover:-translate-y-1 hover:border-white/25"
+      className="panel group relative flex flex-col overflow-hidden p-[var(--space-4)] transition hover:shadow-low"
     >
-      <span
-        className="absolute top-0 left-0 h-full w-[3px]"
-        style={{ background: rating?.color ?? '#8b5cf6', opacity: 0.75 }}
-      />
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-white/8 px-2.5 py-1 font-mono text-[10px] font-bold tracking-widest text-white/80">
-          <Building2 size={11} /> {call.broker}
-        </span>
-        {call.rating && (
-          <span
-            className="rounded-full px-2.5 py-1 font-mono text-[10px] font-bold tracking-widest"
-            style={{ background: `${rating.color}1f`, color: rating.color }}
-          >
-            {call.rating}
-          </span>
-        )}
-        {call.target && (
-          <span className="inline-flex items-center gap-1 rounded-full bg-gold/15 px-2.5 py-1 font-mono text-[10px] font-bold tracking-widest text-gold">
-            <Target size={11} /> {call.target}
-          </span>
-        )}
-        {call.kind === 'view' && (
-          <span className="rounded-full bg-white/5 px-2.5 py-1 font-mono text-[10px] tracking-widest text-white/40">
-            MARKET VIEW
-          </span>
-        )}
+      {/* Two chips at most. The target used to be a third, painted mulberry on
+          a mulberry plate on every card in the grid, which is how an accent
+          stops being an accent. It is a number, so it is set as one below. */}
+      <div className="flex flex-wrap items-center gap-[var(--space-1)]">
+        <Chip>
+          <Building2 size={11} aria-hidden="true" /> {call.broker}
+        </Chip>
+        {call.rating && <Chip>{call.rating}</Chip>}
+        {call.kind === 'view' && <Chip>MARKET VIEW</Chip>}
       </div>
 
-      <h3 className="mt-4 flex-1 text-[17px] leading-snug font-bold transition group-hover:text-gold">{call.title}</h3>
-      {call.summary && <p className="mt-3 line-clamp-3 text-sm leading-relaxed text-white/50">{call.summary}</p>}
+      <h3 className="mt-[var(--space-3)] flex-1 leading-snug">{call.title}</h3>
+      {call.summary && (
+        <p className="mt-[var(--space-2)] line-clamp-3 text-sm leading-relaxed text-ink-2">{call.summary}</p>
+      )}
 
-      <div className="mt-5 flex items-center justify-between font-mono text-[10px] tracking-widest text-white/35 uppercase">
+      {call.target && (
+        <p className="mt-[var(--space-3)] flex items-center gap-1.5 text-ink-3">
+          <Target size={12} aria-hidden="true" />
+          <span className="readout text-sm text-ink">{call.target}</span>
+        </p>
+      )}
+
+      <div className="eyebrow mt-[var(--space-3)] flex items-center justify-between gap-[var(--space-2)]">
         <span>{call.source}</span>
         <span className="flex items-center gap-1.5">
-          <Clock size={11} /> {timeAgo(call.publishedAt)} <ExternalLink size={11} />
+          <Clock size={11} aria-hidden="true" /> {timeAgo(call.publishedAt)} <ExternalLink size={11} aria-hidden="true" />
         </span>
       </div>
     </motion.a>
@@ -85,42 +93,46 @@ function PickCard({ pick, index }) {
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: Math.min(index * 0.04, 0.3) }}
-      className="glass relative overflow-hidden rounded-2xl p-6"
+      className="panel relative overflow-hidden p-[var(--space-4)]"
     >
-      <span className="absolute top-0 left-0 h-full w-[3px]" style={{ background: stance.color, opacity: 0.8 }} />
-      <div className="flex flex-wrap items-start justify-between gap-3">
+      <div className="flex flex-wrap items-start justify-between gap-[var(--space-2)]">
         <div>
-          <h3 className="text-lg font-bold">{pick.company}</h3>
-          <p className="font-mono text-xs text-white/35">
+          <h3>{pick.company}</h3>
+          <p className="readout mt-[var(--space-1)] text-xs text-ink-3">
             {pick.symbol}
             {pick.sector ? ` · ${pick.sector}` : ''}
           </p>
         </div>
-        <span
-          className="rounded-full px-2.5 py-1 font-mono text-[10px] font-bold tracking-widest"
-          style={{ background: `${stance.color}1f`, color: stance.color }}
-        >
-          {stance.label}
-        </span>
+        <Chip style={chipInk(stance)}>{stance.label}</Chip>
       </div>
 
-      <p className="mt-4 text-sm leading-relaxed text-white/70">{pick.thesis}</p>
+      <p className="mt-[var(--space-3)] text-sm leading-relaxed text-ink-2">{pick.thesis}</p>
 
+      {/* Not a Notice: a Notice is a panel, and this already sits inside one.
+          A rule and an eyebrow separate it without nesting a second sheet in
+          the card, and without the tinted plate the old version painted. */}
       {pick.risk && (
-        <div className="mt-4 rounded-xl border-l-2 border-l-flame/60 bg-flame/5 px-4 py-3">
-          <p className="font-mono text-[10px] tracking-widest text-flame uppercase">what would make this wrong</p>
-          <p className="mt-1.5 text-sm leading-relaxed text-white/60">{pick.risk}</p>
+        <div className="mt-[var(--space-3)] border-t border-hairline pt-[var(--space-3)]">
+          <p className="eyebrow">what would make this wrong</p>
+          <p className="mt-[var(--space-1)] max-w-[var(--measure)] text-sm leading-relaxed text-ink-2">{pick.risk}</p>
         </div>
       )}
 
-      <div className="mt-5 flex flex-wrap items-center justify-between gap-3 font-mono text-[10px] tracking-widest text-white/35 uppercase">
+      <div className="eyebrow mt-[var(--space-4)] flex flex-wrap items-center justify-between gap-[var(--space-2)]">
         <span>
-          added {new Date(pick.addedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
-          {pick.addedPrice ? ` at Rs ${pick.addedPrice}` : ''}
+          added <span className="readout">{new Date(pick.addedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+          {pick.addedPrice ? (
+            <>
+              {' at Rs '}
+              <span className="readout">{pick.addedPrice}</span>
+            </>
+          ) : (
+            ''
+          )}
         </span>
         {pick.sourceUrl && (
-          <a href={pick.sourceUrl} target="_blank" rel="noreferrer noopener" className="inline-flex items-center gap-1 text-gold hover:underline">
-            source <ExternalLink size={11} />
+          <a href={pick.sourceUrl} target="_blank" rel="noreferrer noopener" className="inline-flex items-center gap-1 text-ink-2 transition hover:text-ink">
+            source <ExternalLink size={11} aria-hidden="true" />
           </a>
         )}
       </div>
@@ -166,74 +178,73 @@ export default function Recommendations() {
   }, [data, broker, rating])
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6">
+    <div className="mx-auto max-w-7xl px-4 py-[var(--space-6)] sm:px-6">
       <Seo title="Broker calls and research coverage" description="Published research calls from Indian and global broking desks, attributed to the firm that made them, with rating and target where stated." />
-      <div className="flex flex-wrap items-end justify-between gap-6">
+      <div className="flex flex-wrap items-end justify-between gap-[var(--space-4)]">
         <div>
-          <span className="inline-flex items-center gap-2 font-mono text-[11px] tracking-widest text-gold uppercase">
-            <Building2 size={13} /> What the desks are saying
-          </span>
-          <h1 className="mt-3 text-4xl font-extrabold sm:text-5xl">Broker calls</h1>
-          <p className="mt-2 max-w-2xl text-white/55">
+          <span className="eyebrow">What the desks are saying</span>
+          {/* The one voice moment on this page. */}
+          <h1 className="display mt-[var(--space-2)]">Broker calls</h1>
+          <p className="prose mt-[var(--space-3)]">
             Published research calls from Indian and global desks covering this market, each one attributed to the firm
             that made it and linked to the story it came from.
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-[var(--space-2)]">
           {data && (
-            <div className="glass hidden items-center gap-4 rounded-2xl px-5 py-3 sm:flex">
-              <div className="text-center">
-                <div className="font-mono text-lg font-bold text-mint">{data.counts?.calls ?? 0}</div>
-                <div className="font-mono text-[9px] tracking-widest text-white/35 uppercase">rated calls</div>
+            <div className="panel hidden items-center gap-[var(--space-4)] px-[var(--space-4)] py-[var(--space-2)] sm:flex">
+              <div>
+                <div className="readout text-2xl text-ink">{data.counts?.calls ?? 0}</div>
+                <div className="eyebrow">rated calls</div>
               </div>
-              <div className="h-8 w-px bg-white/10" />
-              <div className="text-center">
-                <div className="font-mono text-lg font-bold text-gold">{data.counts?.views ?? 0}</div>
-                <div className="font-mono text-[9px] tracking-widest text-white/35 uppercase">views</div>
+              <div className="h-8 w-px bg-hairline" />
+              <div>
+                <div className="readout text-2xl text-ink">{data.counts?.views ?? 0}</div>
+                <div className="eyebrow">views</div>
               </div>
             </div>
           )}
-          <button onClick={load} className="glass grid h-12 w-12 place-items-center rounded-2xl transition hover:text-gold" aria-label="Refresh">
+          <button onClick={load} className="panel grid h-12 w-12 place-items-center text-ink-3 transition hover:text-ink" aria-label="Refresh">
             <RefreshCw size={17} className={loading ? 'animate-spin' : ''} />
           </button>
         </div>
       </div>
 
-      <div className="glass mt-8 flex items-start gap-3 rounded-2xl border-l-2 border-l-flame p-5">
-        <ShieldAlert size={17} className="mt-0.5 shrink-0 text-flame" />
-        <p className="text-sm leading-relaxed text-white/60">
-          Every call on this page belongs to the brokerage named on it, not to us. We reproduce the headline and link
-          back to the source. InvestoMillionaire is not a SEBI registered research analyst, makes no recommendation of
-          its own, and takes no position on whether any of these calls is right.{' '}
-          <Link to="/disclaimer" className="font-semibold text-gold hover:underline">
-            Full disclaimer
-          </Link>
-        </p>
-      </div>
+      {/* Was a panel with a left border drawn on top of the panel's own ring,
+          two lines a pixel apart. Notice draws the rail as an inset shadow
+          alongside that ring instead. */}
+      <Notice className="mt-[var(--space-5)]">
+        Every call on this page belongs to the brokerage named on it, not to us. We reproduce the headline and link back
+        to the source. InvestoMillionaire is not a SEBI registered research analyst, makes no recommendation of its own,
+        and takes no position on whether any of these calls is right.{' '}
+        <Link to="/disclaimer" className="text-accent hover:underline">
+          Full disclaimer
+        </Link>
+      </Notice>
 
       {data?.brokers?.length > 1 && (
-        <div className="mt-8 space-y-3">
-          <div className="flex flex-wrap gap-2">
+        <div className="mt-[var(--space-6)] space-y-[var(--space-3)]">
+          <div className="flex flex-wrap gap-[var(--space-1)]">
             {['All', 'BUY', 'HOLD', 'SELL'].map((name) => (
               <button
                 key={name}
                 onClick={() => setRating(name)}
-                className={`rounded-full border px-4 py-2 font-mono text-[11px] tracking-widest uppercase transition ${
-                  rating === name ? 'border-transparent bg-gold text-ink' : 'border-white/10 text-white/50 hover:text-white'
-                }`}
+                className="eyebrow rounded-full px-[var(--space-3)] py-[var(--space-1)] transition"
+                style={pillStyle(rating === name, 'var(--color-accent)')}
               >
                 {name}
               </button>
             ))}
           </div>
-          <div className="flex flex-wrap gap-2">
+          {/* Broker is the second filter, so it never takes the accent. Same
+              ink-and-ring language one step quieter. */}
+          <div className="flex flex-wrap gap-[var(--space-1)]">
             {data.brokers.map((name) => (
               <button
                 key={name}
                 onClick={() => setBroker(name)}
-                className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition ${
-                  broker === name ? 'bg-white/15 text-white' : 'bg-white/5 text-white/45 hover:text-white'
-                }`}
+                className="rounded-full px-[var(--space-3)] py-[var(--space-1)] text-sm transition"
+                style={pillStyle(broker === name, 'var(--color-ink)')}
               >
                 {name}
               </button>
@@ -243,56 +254,57 @@ export default function Recommendations() {
       )}
 
       {error && (
-        <div className="mt-8 rounded-2xl border border-flame/30 bg-flame/5 p-6 text-center">
-          <p className="text-flame">{error}</p>
-          <button onClick={load} className="mt-3 text-sm text-white/60 underline">Try again</button>
-        </div>
+        <Notice tone="loss" className="mt-[var(--space-5)]">
+          {error}{' '}
+          <button onClick={load} className="text-ink underline underline-offset-2">
+            Try again
+          </button>
+        </Notice>
       )}
 
       {loading && !data ? (
-        <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-[var(--space-5)] grid gap-[var(--space-3)] sm:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="glass h-56 animate-pulse rounded-2xl p-6">
-              <div className="h-3 w-24 rounded bg-white/10" />
-              <div className="mt-6 h-4 w-full rounded bg-white/10" />
-              <div className="mt-2 h-4 w-2/3 rounded bg-white/10" />
+            <div key={i} className="panel h-56 p-[var(--space-4)]">
+              <div className="h-3 w-24 rounded bg-hairline" />
+              <div className="mt-[var(--space-4)] h-4 w-full rounded bg-hairline" />
+              <div className="mt-2 h-4 w-2/3 rounded bg-hairline" />
             </div>
           ))}
         </div>
       ) : (
         <>
-          <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="mt-[var(--space-5)] grid gap-[var(--space-3)] sm:grid-cols-2 lg:grid-cols-3">
             {calls.map((call, i) => (
               <CallCard key={call.id} call={call} index={i} />
             ))}
           </div>
           {calls.length === 0 && !error && (
-            <p className="mt-16 text-center text-white/40">
+            <p className="mt-[var(--space-7)] text-center text-ink-3">
               No calls match that filter right now. Coverage refreshes every fifteen minutes.
             </p>
           )}
         </>
       )}
 
-      {/* Owner maintained notes */}
-      <section className="mt-16">
-        <div className="flex items-center gap-2">
-          <NotebookPen size={20} className="text-gold" />
-          <h2 className="text-3xl font-extrabold">On our desk</h2>
-        </div>
-        <p className="mt-2 max-w-2xl text-white/55">
+      {/* Owner maintained notes. The section break is the largest gap on the
+          page, which is what tells you it is a different thing; it used to be
+          announced by a mulberry notebook icon instead. */}
+      <section className="mt-[var(--space-7)]">
+        <h2>On our desk</h2>
+        <p className="prose mt-[var(--space-3)]">
           Companies we are reading about, with the reasoning written down and the thing that would prove it wrong
           written down next to it. These are study notes kept in public, not calls to buy anything.
         </p>
 
         {data?.picks?.length ? (
-          <div className="mt-7 grid gap-5 lg:grid-cols-2">
+          <div className="mt-[var(--space-5)] grid gap-[var(--space-3)] lg:grid-cols-2">
             {data.picks.map((pick, i) => (
               <PickCard key={pick.id} pick={pick} index={i} />
             ))}
           </div>
         ) : (
-          <p className="glass mt-7 rounded-2xl p-8 text-center text-sm text-white/45">
+          <p className="panel mt-[var(--space-5)] p-[var(--space-5)] text-center text-sm text-ink-3">
             Nothing on the desk yet. Notes appear here once they are added.
           </p>
         )}
