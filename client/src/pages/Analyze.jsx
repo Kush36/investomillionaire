@@ -1433,7 +1433,7 @@ export default function Analyze() {
         <label htmlFor="analyze-query" className="eyebrow">
           company name, NSE symbol or ISIN
         </label>
-        <div className="mt-[var(--space-2)] flex flex-wrap gap-[var(--space-2)]">
+        <div className="mt-[var(--space-2)] flex flex-col gap-[var(--space-2)] sm:flex-row">
           <div className="well flex min-w-0 flex-1 items-center gap-[var(--space-2)] px-[var(--space-3)]">
             <Search size={16} className="shrink-0 text-ink-3" aria-hidden="true" />
             <input

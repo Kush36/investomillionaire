@@ -17,12 +17,13 @@ const TITLE = { fontSize: 'var(--text-title)', lineHeight: 1.06 }
 // The one accent treatment on the page, and it means exactly one thing: make an
 // account. Two appearances, both the same action. Everything else is ink.
 const ACTION =
-  'inline-flex items-center rounded-full bg-accent px-7 py-3.5 text-sm font-medium text-white transition hover:bg-accent/90'
+  'inline-flex items-center rounded-full bg-accent px-7 py-3.5 text-sm font-medium text-canvas transition hover:bg-accent/90'
 
 // Every other link is a word with a rule under it. A hairline that darkens on
 // hover is affordance enough; a second pill would make the accent pill ordinary.
 const LINK =
-  'inline-flex items-center gap-[var(--space-1)] border-b border-hairline pb-[3px] text-sm text-ink transition hover:border-ink'
+  '-my-[10px] inline-flex min-h-11 items-center gap-[var(--space-1)] border-b border-hairline py-[10px] pb-[3px] '
+  + 'text-sm text-ink transition hover:border-ink'
 
 const features = (stats) => [
   {

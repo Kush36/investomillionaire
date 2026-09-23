@@ -171,51 +171,65 @@
    forced light mode gets the same product rather than a different one.
    Every ratio computed against its own canvas, surface and surface-2.
    ============================================================ */
-@media (prefers-color-scheme: light) {
+:root[data-theme='light'] {
+  color-scheme: light;
+  --color-canvas: #E9EFEA;
+  --color-surface: #F5F8F5;
+  --color-surface-2: #DCE5DE;
+  --color-hairline: #BFCFC4;
+  --color-hairline-strong: #5F7D6D; /* 3.88 canvas · 4.23 surface · 3.51 surface-2 */
+  --color-ink: #08150F;      /* 16.01 · 17.46 · 14.50 */
+  --color-ink-2: #33463C;    /*  8.64 ·  9.43 ·  7.83 */
+  --color-ink-3: #4E6358;    /*  5.54 ·  6.04 ·  5.02 */
+  --color-accent: #5B2E8C;   /*  8.13 ·  8.86 ·  7.36 */
+  --color-accent-tint: #EAE0F5;
+  --color-live: #7B1FA2;     /*  7.03 ·  7.67 ·  6.37 */
+  --color-gain: #0B5A72;     /*  6.62 ·  7.22 ·  6.00 */
+  --color-loss: #8C2F12;     /*  7.11 ·  7.76 ·  6.44 */
+  --color-brass: #6E5416;    /*  6.12 ·  6.67 ·  5.54 */
+
+  --color-stage: #D3DED6;
+  --color-stage-fog: #E3EAE4;
+  --color-stage-floor: #C7D4CA;
+
+  /* On a light ground the specular band is the stop that can fail, the
+     mirror of the dark theme's problem. #C9A659 read 1.80 on surface-2.
+     The band is therefore the darkest gold that still climbs above the
+     mid-tone, so metal here is a bronze that brightens rather than a
+     yellow that flares. Limb 14.70 · 16.03 · 13.32, mid 8.43 · 9.19 ·
+     7.64, band 5.08 · 5.54 · 4.61. --color-metal sits below --color-brass
+     on purpose: brass is flat gold set as text, metal is the ramp's
+     middle and needs headroom above it for the band. */
+  --color-metal: #56400E;
+  --color-metal-dark: #241A03;
+  --color-metal-spec: #7E5F1C;
+
+  --color-sheen: #ffffff;
+  --shadow-low: 0 1px 2px rgb(6 18 14 / 0.08);
+  --shadow-med: 0 8px 24px -8px rgb(6 18 14 / 0.16);
+  --shadow-high: 0 24px 64px -16px rgb(6 18 14 / 0.22);
+  --shadow-lift: inset 0 1px 0 var(--color-sheen), 0 0 0 1px var(--color-hairline),
+    0 2px 4px rgb(6 18 14 / 0.07), 0 14px 36px -14px rgb(6 18 14 / 0.18);
+  --shadow-inset: inset 0 1px 3px rgb(6 18 14 / 0.12), inset 0 0 0 1px var(--color-hairline);
+  --shadow-cap: inset 0 1px 0 var(--color-sheen), 0 0 0 1px var(--color-hairline),
+    0 1px 2px rgb(6 18 14 / 0.14);
+}
+
+/* The scale above is tuned for a reading column on a laptop. On a 360px phone the
+   same 17px at 1.65 turns a short paragraph into seven lines and pushes the first
+   control below the fold, which reads as a broken layout rather than a generous one.
+   These are the same tokens at a tighter step, so nothing downstream changes. */
+@media (max-width: 640px) {
   :root {
-    --color-canvas: #E9EFEA;
-    --color-surface: #F5F8F5;
-    --color-surface-2: #DCE5DE;
-    --color-hairline: #BFCFC4;
-    --color-hairline-strong: #5F7D6D; /* 3.88 canvas · 4.23 surface · 3.51 surface-2 */
-    --color-ink: #08150F;      /* 16.01 · 17.46 · 14.50 */
-    --color-ink-2: #33463C;    /*  8.64 ·  9.43 ·  7.83 */
-    --color-ink-3: #4E6358;    /*  5.54 ·  6.04 ·  5.02 */
-    --color-accent: #5B2E8C;   /*  8.13 ·  8.86 ·  7.36 */
-    --color-accent-tint: #EAE0F5;
-    --color-live: #7B1FA2;     /*  7.03 ·  7.67 ·  6.37 */
-    --color-gain: #0B5A72;     /*  6.62 ·  7.22 ·  6.00 */
-    --color-loss: #8C2F12;     /*  7.11 ·  7.76 ·  6.44 */
-    --color-brass: #6E5416;    /*  6.12 ·  6.67 ·  5.54 */
-
-    --color-stage: #D3DED6;
-    --color-stage-fog: #E3EAE4;
-    --color-stage-floor: #C7D4CA;
-
-    /* On a light ground the specular band is the stop that can fail, the
-       mirror of the dark theme's problem. #C9A659 read 1.80 on surface-2.
-       The band is therefore the darkest gold that still climbs above the
-       mid-tone, so metal here is a bronze that brightens rather than a
-       yellow that flares. Limb 14.70 · 16.03 · 13.32, mid 8.43 · 9.19 ·
-       7.64, band 5.08 · 5.54 · 4.61. --color-metal sits below --color-brass
-       on purpose: brass is flat gold set as text, metal is the ramp's
-       middle and needs headroom above it for the band. */
-    --color-metal: #56400E;
-    --color-metal-dark: #241A03;
-    --color-metal-spec: #7E5F1C;
-
-    --color-sheen: #ffffff;
-    --shadow-low: 0 1px 2px rgb(6 18 14 / 0.08);
-    --shadow-med: 0 8px 24px -8px rgb(6 18 14 / 0.16);
-    --shadow-high: 0 24px 64px -16px rgb(6 18 14 / 0.22);
-    --shadow-lift: inset 0 1px 0 var(--color-sheen), 0 0 0 1px var(--color-hairline),
-      0 2px 4px rgb(6 18 14 / 0.07), 0 14px 36px -14px rgb(6 18 14 / 0.18);
-    --shadow-inset: inset 0 1px 3px rgb(6 18 14 / 0.12), inset 0 0 0 1px var(--color-hairline);
-    --shadow-cap: inset 0 1px 0 var(--color-sheen), 0 0 0 1px var(--color-hairline),
-      0 1px 2px rgb(6 18 14 / 0.14);
+    --text-body: 1rem;
+    --text-small: 0.8125rem;
+    --space-4: 1.125rem;
+    --space-5: 1.75rem;
+    --space-6: 2.5rem;
+    --space-7: 3.5rem;
   }
-  html {
-    color-scheme: light;
+  body {
+    line-height: 1.55;
   }
 }
 
