@@ -88,7 +88,11 @@ export default function Nav() {
           )}
         </div>
 
-        <button className="text-ink-2 md:hidden" onClick={() => setOpen(!open)} aria-label="Toggle menu">
+        <button
+          className="-m-2 grid min-h-11 min-w-11 place-items-center p-2 text-ink-2 md:hidden"
+          onClick={() => setOpen(!open)}
+          aria-label="Toggle menu"
+        >
           {open ? <X /> : <Menu />}
         </button>
       </nav>

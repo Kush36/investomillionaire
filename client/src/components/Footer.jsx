@@ -7,7 +7,7 @@ import Notice from './Notice.jsx'
 // second body colour. Hover moves ink-2 to ink instead: the link still answers
 // the pointer, and the only colour left in the footer is the loss rail on the
 // SEBI notice, which is the one thing down here that has to be seen.
-const linkClass = 'transition hover:text-ink'
+const linkClass = 'inline-flex min-h-11 items-center transition hover:text-ink'
 
 export default function Footer() {
   return (
@@ -39,7 +39,7 @@ export default function Footer() {
 
           <div>
             <h4 className="eyebrow mb-[var(--space-2)]">Learn</h4>
-            <ul className="space-y-[var(--space-1)] text-sm text-ink-2">
+            <ul className="text-sm text-ink-2">
               <li><Link to="/learn/fundamental" className={linkClass}>Fundamentals track</Link></li>
               <li><Link to="/learn/technical" className={linkClass}>Technicals track</Link></li>
               <li><Link to="/quiz" className={linkClass}>Levelled quizzes</Link></li>
@@ -51,7 +51,7 @@ export default function Footer() {
 
           <div>
             <h4 className="eyebrow mb-[var(--space-2)]">Site</h4>
-            <ul className="space-y-[var(--space-1)] text-sm text-ink-2">
+            <ul className="text-sm text-ink-2">
               <li><Link to="/leaderboard" className={linkClass}>Leaderboard</Link></li>
               <li><Link to="/dashboard" className={linkClass}>Your progress</Link></li>
               <li><Link to="/disclaimer" className={linkClass}>Disclaimer</Link></li>
