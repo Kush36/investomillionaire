@@ -2,21 +2,22 @@ import { useMemo, useRef, useState } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { Line } from '@react-three/drei'
 import Label from './Label.jsx'
+import { token } from './Scene.jsx'
 
-const GOLD = '#eaa81e'
+const ACCENT = token('accent')
 
 // Ratios traders actually mark. The 38.2 to 61.8 band is where pullbacks in a
 // healthy trend most often stall.
 const FIB_LEVELS = [
-  { ratio: 0, label: '0% · swing high', color: '#ff5d5d', golden: false },
-  { ratio: 0.236, label: '23.6%', color: '#8b5cf6', golden: false },
-  { ratio: 0.382, label: '38.2%', color: '#eaa81e', golden: true },
-  { ratio: 0.5, label: '50%', color: '#eaa81e', golden: true },
-  { ratio: 0.618, label: '61.8%', color: '#eaa81e', golden: true },
-  { ratio: 1, label: '100% · swing low', color: '#33e29b', golden: false },
+  { ratio: 0, label: '0% · swing high', color: token('loss'), golden: false },
+  { ratio: 0.236, label: '23.6%', color: token('ink-3'), golden: false },
+  { ratio: 0.382, label: '38.2%', color: token('accent'), golden: true },
+  { ratio: 0.5, label: '50%', color: token('accent'), golden: true },
+  { ratio: 0.618, label: '61.8%', color: token('accent'), golden: true },
+  { ratio: 1, label: '100% · swing low', color: token('gain'), golden: false },
 ]
-const MINT = '#33e29b'
-const FLAME = '#ff5d5d'
+const GAIN = token('gain')
+const LOSS = token('loss')
 
 // Seeded so the diagram is identical on every render and every device.
 function mulberry(seed) {
@@ -68,7 +69,7 @@ function buildSeries(preset) {
 
 function Candle({ bar, x, scaleY, base, mid, onHover }) {
   const bull = bar.close >= bar.open
-  const color = bull ? MINT : FLAME
+  const color = bull ? GAIN : LOSS
   const bodyHeight = Math.max(0.08, Math.abs(bar.close - bar.open) * scaleY)
   const bodyY = base + ((bar.open + bar.close) / 2 - mid) * scaleY
   const wickHeight = Math.max(0.1, (bar.high - bar.low) * scaleY)
@@ -146,14 +147,13 @@ export default function CandleChart3D({ preset = 'basic' }) {
 
   useFrame((state) => {
     if (group.current) {
-      group.current.position.y = Math.sin(state.clock.elapsedTime * 0.6) * 0.06
     }
   })
 
   return (
     <group ref={group}>
       {/* floor grid */}
-      <gridHelper args={[width + 4, 20, '#1c2a48', '#121c33']} position={[0, -3.2, 0]} />
+      <gridHelper args={[width + 4, 20, token('hairline-strong'), token('hairline')]} position={[0, -3.2, 0]} />
 
       {series.map((bar) => (
         <Candle
@@ -169,12 +169,12 @@ export default function CandleChart3D({ preset = 'basic' }) {
 
       {preset === 'sr' && (
         <>
-          <Zone y={base + (highest - mid) * scaleY - 0.2} width={width} color={FLAME} />
-          <Zone y={base + (lowest - mid) * scaleY + 0.2} width={width} color={MINT} />
-          <Label position={[startX - 0.25, base + (highest - mid) * scaleY, 0]} tone="flame">
+          <Zone y={base + (highest - mid) * scaleY - 0.2} width={width} color={LOSS} />
+          <Zone y={base + (lowest - mid) * scaleY + 0.2} width={width} color={GAIN} />
+          <Label position={[startX - 0.25, base + (highest - mid) * scaleY, 0]} tone="loss">
             resistance
           </Label>
-          <Label position={[startX - 0.25, base + (lowest - mid) * scaleY, 0]} tone="mint">
+          <Label position={[startX - 0.25, base + (lowest - mid) * scaleY, 0]} tone="gain">
             support
           </Label>
         </>
@@ -182,9 +182,9 @@ export default function CandleChart3D({ preset = 'basic' }) {
 
       {preset === 'indicators' && (
         <>
-          <MovingAverage series={series} period={5} color={GOLD} scaleY={scaleY} base={base} mid={mid} spacing={spacing} startX={startX} />
-          <MovingAverage series={series} period={12} color="#8b5cf6" scaleY={scaleY} base={base} mid={mid} spacing={spacing} startX={startX} />
-          <Label position={[startX + series.length * spacing + 0.4, base + 1.6, 0]} tone="gold">
+          <MovingAverage series={series} period={5} color={ACCENT} scaleY={scaleY} base={base} mid={mid} spacing={spacing} startX={startX} />
+          <MovingAverage series={series} period={12} color={token('ink-3')} scaleY={scaleY} base={base} mid={mid} spacing={spacing} startX={startX} />
+          <Label position={[startX + series.length * spacing + 0.4, base + 1.6, 0]} tone="accent">
             fast MA (5)
           </Label>
           <Label position={[startX + series.length * spacing + 0.4, base + 0.6, 0]}>slow MA (12)</Label>
@@ -199,13 +199,13 @@ export default function CandleChart3D({ preset = 'basic' }) {
             return (
               <group key={level.ratio}>
                 <Zone y={y} width={width} color={level.color} opacity={level.golden ? 0.22 : 0.1} />
-                <Label position={[startX - 0.3, y, 0]} size="xs" tone={level.golden ? 'gold' : 'default'}>
+                <Label position={[startX - 0.3, y, 0]} size="xs" tone={level.golden ? 'accent' : 'default'}>
                   {level.label}
                 </Label>
               </group>
             )
           })}
-          <Label position={[startX + series.length * spacing * 0.5, base + (highest - mid) * scaleY + 0.9, 0]} tone="gold">
+          <Label position={[startX + series.length * spacing * 0.5, base + (highest - mid) * scaleY + 0.9, 0]} tone="accent">
             golden zone 38.2 to 61.8 percent
           </Label>
         </>
@@ -213,14 +213,14 @@ export default function CandleChart3D({ preset = 'basic' }) {
 
       {preset === 'pattern' && (
         <>
-          <Zone y={base - 0.6} width={width} color={GOLD} opacity={0.2} />
-          <Label position={[startX + 3.2, base + 3.4, 0]} tone="flame">
+          <Zone y={base - 0.6} width={width} color={ACCENT} opacity={0.2} />
+          <Label position={[startX + 3.2, base + 3.4, 0]} tone="accent">
             head
           </Label>
-          <Label position={[startX + 1.1, base + 1.6, 0]} tone="gold">
+          <Label position={[startX + 1.1, base + 1.6, 0]} tone="default">
             left shoulder
           </Label>
-          <Label position={[startX + 5.4, base + 1.6, 0]} tone="gold">
+          <Label position={[startX + 5.4, base + 1.6, 0]} tone="default">
             right shoulder
           </Label>
           <Label position={[startX - 0.25, base - 0.6, 0]}>neckline</Label>
@@ -232,7 +232,7 @@ export default function CandleChart3D({ preset = 'basic' }) {
       </Label>
 
       {hovered && (
-        <Label position={[startX + hovered.i * spacing, base + (hovered.high - mid) * scaleY + 0.7, 0]} tone="gold" size="xs">
+        <Label position={[startX + hovered.i * spacing, base + (hovered.high - mid) * scaleY + 0.7, 0]} tone="accent" size="xs">
           {`O ${hovered.open.toFixed(1)} · H ${hovered.high.toFixed(1)} · L ${hovered.low.toFixed(1)} · C ${hovered.close.toFixed(1)}`}
         </Label>
       )}

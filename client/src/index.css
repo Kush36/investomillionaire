@@ -1,88 +1,378 @@
 @import 'tailwindcss';
 
+/* Self-hosted and subset to the glyphs this site actually sets, including the
+   rupee sign. The Google Fonts link this replaces cost a third-party connection
+   and a render-blocking stylesheet on the critical path of every route. */
+@font-face {
+  font-family: 'Inter';
+  src: url('/fonts/inter-var.woff2') format('woff2');
+  font-weight: 400 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('/fonts/jetbrains-mono-var.woff2') format('woff2');
+  font-weight: 400 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Instrument Serif';
+  src: url('/fonts/instrument-serif.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ============================================================
+   InvestoMillionaire design tokens. Malachite and Amethyst.
+   Dark is the default. The light sheet is the twin.
+
+   Three light palettes shipped and three were rejected, all for the
+   same reason: paper is austere, and austere is not the register this
+   product sells in. A dark ground also buys something a light one
+   cannot. Twelve WebGL scenes are the most distinctive asset here,
+   and lit geometry only reads as material against darkness. On paper
+   it reads as clip art.
+
+   The ground is a near-black carrying real green chroma rather than
+   flat grey, so the surface ladder climbs through a hue instead of
+   through noise. Depth comes from four close steps plus an occlusion
+   shadow and a one-pixel sheen. It never comes from a glow.
+
+   Amethyst carries the energy. Gold exists, but only as metal: a
+   three-stop ramp with a tight specular band, never a yellow fill.
+
+   Every ratio below was computed against the surface named, not
+   asserted. Body ink clears 7:1 on all three surfaces of its theme.
+   Everything meaning-bearing clears 4.5:1 on all three.
+   ============================================================ */
+
 @theme {
-  --color-gold: #eaa81e;
-  --color-gold-soft: #ffcf5c;
-  --color-navy: #14315c;
-  --color-navy-deep: #0b1c38;
-  --color-ink: #050a16;
-  --color-ink-soft: #0a1224;
-  --color-mint: #33e29b;
-  --color-flame: #ff5d5d;
-  --color-violet: #8b5cf6;
+  /* ---- Surface ladder. Four steps, each roughly double the relative
+          luminance of the one below, which is what makes an edge legible
+          without a border on every box. ---- */
+  --color-canvas: #06120E;   /* page ground. Near-black, malachite chroma */
+  --color-surface: #0C1D18;  /* raised: card, instrument frame */
+  --color-surface-2: #132922; /* raised further: active row, control cap */
+  --color-hairline: #1E3B32; /* quiet separator, never the only cue for a control */
+  --color-hairline-strong: #4A7D6D; /* control boundary. 4.04:1 on canvas, 3.25:1 on surface-2 */
+  --color-ink: #EAF4EF;      /* 16.98 canvas · 15.51 surface · 13.66 surface-2 */
+  --color-ink-2: #AFC8BE;    /* 10.75 · 9.82 · 8.65  secondary prose, captions */
+  --color-ink-3: #86A197;    /*  6.87 · 6.27 · 5.53  source lines, legends, the floor */
+  --color-accent: #C79BFF;   /*  8.69 · 7.94 · 6.99  links, the one button */
+  --color-accent-tint: #2A1D3C; /* selected option wash. accent on it reads 7.14 */
+  --color-live: #EFB8FF;     /* 11.78 · 10.77 ·  9.48  a value a finger is changing this instant */
+  --color-gain: #63D8F5;     /* 11.51 · 10.52 · 9.26  profit. Never green */
+  --color-loss: #FF8F6B;     /*  8.53 · 7.80 · 6.87  loss, and the risk disclosure */
+  --color-brass: #E0B563;    /*  9.96 · 9.10 · 8.01  the metal mid-tone */
 
-  --font-display: 'Sora', system-ui, sans-serif;
-  --font-mono: 'Space Grotesk', ui-monospace, monospace;
+  /* ---- The 3D stage. A scene is a lit box set into the page, so its
+          ground sits below canvas rather than matching it. Matching made
+          the canvas element vanish and the geometry look pasted on. ---- */
+  --color-stage: #030A08;       /* scene clear colour */
+  --color-stage-fog: #0A1A15;   /* distance haze. Lifted, so far geometry recedes instead of clipping to black */
+  --color-stage-floor: #0E211B; /* ground plane the shadows land on */
 
-  --animate-float: float 6s ease-in-out infinite;
-  --animate-marquee: marquee 40s linear infinite;
-  --animate-shimmer: shimmer 2.5s linear infinite;
+  /* ---- Metal. Gold reads as gold because of a narrow specular band
+          between two darker limbs. A flat fill of the mid-tone reads as
+          mustard, which is the failure the old palette shipped.
+
+          Every stop carries its own contrast, because the metal utility
+          clips this ramp to text and a reader lands on whichever stop
+          falls across the stroke. The dark limb was #6B4D1B and read 2.24
+          on surface, so a third of a gold word was illegible.
+          Limb 5.72 · 5.23 · 4.60, mid 9.96 · 9.10 · 8.01, band 17.01 · 15.55 · 13.69. ---- */
+  --color-metal: #E0B563;
+  --color-metal-dark: #B0862F;
+  --color-metal-spec: #FFF1CE;
+  --gradient-metal: linear-gradient(
+    152deg,
+    var(--color-metal-dark) 0%,
+    var(--color-metal) 34%,
+    var(--color-metal-spec) 49%,
+    var(--color-metal) 64%,
+    var(--color-metal-dark) 100%
+  );
+  --metal-metalness: 0.95; /* read by three.js through token(); a metal below 0.9 looks like plastic */
+  --metal-roughness: 0.22;
+
+  /* ---- Type ---- */
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', monospace;
+  --font-display: 'Instrument Serif', Georgia, serif;
+
+  /* ---- Motion durations. Raw millisecond numbers are banned in JSX ---- */
+  --dur-tap: 120ms;
+  --dur-enter: 260ms;
+  --dur-exit: 200ms;
+  --dur-page: 360ms;
+  --dur-reveal: 520ms;  /* an element arriving because the reader scrolled to it */
+  --dur-settle: 700ms;  /* mass coming to rest after a drag or a fling */
+  --dur-data: 1200ms;
+
+  /* ---- Motion easings. linear is banned outright ---- */
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-enter: cubic-bezier(0.05, 0.7, 0.1, 1);
+  --ease-exit: cubic-bezier(0.3, 0, 0.8, 0.15);
+  --ease-data: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-inertia: cubic-bezier(0.16, 1, 0.3, 1);   /* release: fast handoff, long tail */
+  --ease-material: cubic-bezier(0.34, 1.2, 0.64, 1); /* one small overshoot, so a thing has weight */
+
+  /* ---- Radii. Concentric rule: inner equals outer minus padding ---- */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-pill: 999px;
+
+  /* ---- Elevation, entirely glow-free. Height is a top sheen plus an
+          occlusion shadow that spreads and softens with distance. A
+          coloured shadow behind a card is the crypto-pump tell. ---- */
+  --color-sheen: rgb(255 255 255 / 0.07);
+  --shadow-ring: 0 0 0 1px var(--color-hairline);
+  --shadow-low: 0 1px 2px rgb(0 0 0 / 0.5);
+  --shadow-med: 0 8px 24px -8px rgb(0 0 0 / 0.65);
+  --shadow-high: 0 24px 64px -16px rgb(0 0 0 / 0.75);
+  --shadow-lift: inset 0 1px 0 var(--color-sheen), 0 0 0 1px var(--color-hairline),
+    0 2px 4px rgb(0 0 0 / 0.4), 0 14px 36px -14px rgb(0 0 0 / 0.7);
+  --shadow-inset: inset 0 1px 3px rgb(0 0 0 / 0.55), inset 0 0 0 1px var(--color-hairline);
+  --shadow-cap: inset 0 1px 0 var(--color-sheen), 0 0 0 1px var(--color-hairline),
+    0 1px 2px rgb(0 0 0 / 0.55);
+
+  /* ---- Type scale. Display sizes are fluid and track tight; a confident
+          headline is the cheapest luxury signal there is, and the old sheet
+          spent its budget on wide tracking instead. ---- */
+  --text-display: clamp(2.75rem, 1.6rem + 5.2vw, 5.25rem);
+  --text-title: clamp(1.9rem, 1.3rem + 2.6vw, 3rem);
+  --text-heading: clamp(1.25rem, 1.05rem + 0.9vw, 1.6rem);
+  --text-body: 1.0625rem;      /* 17px. Below this a reading page feels like a form. */
+  --text-small: 0.875rem;
+  --text-micro: 0.6875rem;
+
+  /* ---- Spacing rhythm. Every vertical gap comes from here, so the page has
+          a beat instead of forty arbitrary margins. ---- */
+  --space-1: 0.5rem;
+  --space-2: 0.75rem;
+  --space-3: 1rem;
+  --space-4: 1.5rem;
+  --space-5: 2.5rem;
+  --space-6: 4rem;
+  --space-7: 6rem;
+  --measure: 68ch;
+
+  /* ---- Layout ---- */
+  --page-max: 1024px;
+  --page-inset: 24px;
 }
 
-@keyframes float {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-12px); }
-}
-@keyframes marquee {
-  from { transform: translateX(0); }
-  to { transform: translateX(-50%); }
-}
-@keyframes shimmer {
-  from { background-position: 200% 0; }
-  to { background-position: -200% 0; }
+/* ============================================================
+   The light twin. Same hues, inverted ladder, so a reader who has
+   forced light mode gets the same product rather than a different one.
+   Every ratio computed against its own canvas, surface and surface-2.
+   ============================================================ */
+@media (prefers-color-scheme: light) {
+  :root {
+    --color-canvas: #E9EFEA;
+    --color-surface: #F5F8F5;
+    --color-surface-2: #DCE5DE;
+    --color-hairline: #BFCFC4;
+    --color-hairline-strong: #5F7D6D; /* 3.88 canvas · 4.23 surface · 3.51 surface-2 */
+    --color-ink: #08150F;      /* 16.01 · 17.46 · 14.50 */
+    --color-ink-2: #33463C;    /*  8.64 ·  9.43 ·  7.83 */
+    --color-ink-3: #4E6358;    /*  5.54 ·  6.04 ·  5.02 */
+    --color-accent: #5B2E8C;   /*  8.13 ·  8.86 ·  7.36 */
+    --color-accent-tint: #EAE0F5;
+    --color-live: #7B1FA2;     /*  7.03 ·  7.67 ·  6.37 */
+    --color-gain: #0B5A72;     /*  6.62 ·  7.22 ·  6.00 */
+    --color-loss: #8C2F12;     /*  7.11 ·  7.76 ·  6.44 */
+    --color-brass: #6E5416;    /*  6.12 ·  6.67 ·  5.54 */
+
+    --color-stage: #D3DED6;
+    --color-stage-fog: #E3EAE4;
+    --color-stage-floor: #C7D4CA;
+
+    /* On a light ground the specular band is the stop that can fail, the
+       mirror of the dark theme's problem. #C9A659 read 1.80 on surface-2.
+       The band is therefore the darkest gold that still climbs above the
+       mid-tone, so metal here is a bronze that brightens rather than a
+       yellow that flares. Limb 14.70 · 16.03 · 13.32, mid 8.43 · 9.19 ·
+       7.64, band 5.08 · 5.54 · 4.61. --color-metal sits below --color-brass
+       on purpose: brass is flat gold set as text, metal is the ramp's
+       middle and needs headroom above it for the band. */
+    --color-metal: #56400E;
+    --color-metal-dark: #241A03;
+    --color-metal-spec: #7E5F1C;
+
+    --color-sheen: #ffffff;
+    --shadow-low: 0 1px 2px rgb(6 18 14 / 0.08);
+    --shadow-med: 0 8px 24px -8px rgb(6 18 14 / 0.16);
+    --shadow-high: 0 24px 64px -16px rgb(6 18 14 / 0.22);
+    --shadow-lift: inset 0 1px 0 var(--color-sheen), 0 0 0 1px var(--color-hairline),
+      0 2px 4px rgb(6 18 14 / 0.07), 0 14px 36px -14px rgb(6 18 14 / 0.18);
+    --shadow-inset: inset 0 1px 3px rgb(6 18 14 / 0.12), inset 0 0 0 1px var(--color-hairline);
+    --shadow-cap: inset 0 1px 0 var(--color-sheen), 0 0 0 1px var(--color-hairline),
+      0 1px 2px rgb(6 18 14 / 0.14);
+  }
+  html {
+    color-scheme: light;
+  }
 }
 
-html {
-  scroll-behavior: smooth;
-  color-scheme: dark;
+@layer base {
+  html {
+    color-scheme: dark;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    margin: 0;
+    background: var(--color-canvas);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    /* Nothing on this site should reflow when a number ticks. */
+    font-variant-numeric: tabular-nums;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+
+  /* Display type tracks negative, eyebrows track positive and sparingly.
+     The old sheet had it inverted: sixty-eight widely tracked elements
+     against two tight ones, which is what made it read cheap. */
+  h1,
+  h2,
+  h3 {
+    letter-spacing: -0.022em;
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  ::selection {
+    background: var(--color-accent);
+    /* Canvas resolves dark on one theme and light on the other, so the
+       selected text stays legible without a second token. */
+    color: var(--color-canvas);
+  }
 }
 
+/* One focus ring, offset so it draws on the parent surface and stays
+   visible on canvas, surface, tint and accent fill alike. */
+:where(a, button, input, select, textarea, [role='slider'], [tabindex]):focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+
+/* Optical corrections. None of these are visible one at a time, which is the
+   point: the difference between expensive and cheap typesetting is a dozen
+   things nobody names individually. */
 body {
-  margin: 0;
-  background: var(--color-ink);
-  color: #e8edf7;
+  font-feature-settings: 'cv01' 1, 'cv11' 1, 'ss03' 1;
+  letter-spacing: -0.006em;
+  font-size: var(--text-body);
+  line-height: 1.65;
+}
+
+h1 {
+  font-size: var(--text-title);
+  letter-spacing: -0.028em;
+  line-height: 1.05;
+  font-weight: 600;
+}
+
+h2 {
+  font-size: var(--text-heading);
+  letter-spacing: -0.022em;
+  line-height: 1.2;
+  font-weight: 600;
+}
+
+h3 {
+  font-size: 1.0625rem;
+  letter-spacing: -0.018em;
+  font-weight: 600;
+}
+
+/* The one line per page that carries the voice. Instrument Serif against Inter
+   is the whole typographic idea; used twice it stops being an idea. */
+@utility display {
   font-family: var(--font-display);
-  -webkit-font-smoothing: antialiased;
-  overflow-x: hidden;
+  font-size: var(--text-display);
+  font-weight: 400;
+  line-height: 0.96;
+  letter-spacing: -0.03em;
 }
 
-::selection {
-  background: var(--color-gold);
-  color: var(--color-ink);
+/* Prose measure. Long lines are the most common reason a reading page feels
+   cheap, and the lesson page is where people spend their time. */
+@utility prose {
+  max-width: var(--measure);
+  font-size: var(--text-body);
+  line-height: 1.7;
+  color: var(--color-ink-2);
 }
 
-::-webkit-scrollbar { width: 10px; height: 10px; }
-::-webkit-scrollbar-track { background: var(--color-ink); }
-::-webkit-scrollbar-thumb {
-  background: color-mix(in srgb, var(--color-gold) 40%, transparent);
-  border-radius: 99px;
-}
-::-webkit-scrollbar-thumb:hover { background: var(--color-gold); }
-
-@utility glass {
-  background: color-mix(in srgb, #ffffff 4%, transparent);
-  backdrop-filter: blur(18px);
-  border: 1px solid color-mix(in srgb, #ffffff 8%, transparent);
+/* Numbers never reflow and never mix with prose figures. */
+@utility readout {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
 }
 
-@utility gold-text {
-  background: linear-gradient(120deg, var(--color-gold-soft), var(--color-gold) 45%, #fff2cd 70%, var(--color-gold));
-  background-size: 200% auto;
+/* A raised sheet. Height reads from the sheen along its top edge and the
+   occlusion under it, never from a glow, which is why this survives on a
+   dark ground where a bordered card would not. */
+@utility panel {
+  background: var(--color-surface);
+  box-shadow: var(--shadow-lift);
+  border-radius: var(--radius-lg);
+}
+
+/* A recessed well: channels, table rows, anything a control sits inside. */
+@utility well {
+  background: var(--color-surface-2);
+  box-shadow: var(--shadow-inset);
+  border-radius: var(--radius-md);
+}
+
+/* The frame a WebGL canvas sits in. Its ground is darker than the page, so
+   the scene reads as a lit box cut into the sheet rather than pasted onto it. */
+@utility stage {
+  background: var(--color-stage);
+  box-shadow: var(--shadow-inset);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+/* Gold, as metal. The specular band does the work; widen it or flatten it to
+   the mid-tone and the whole thing turns to mustard. */
+@utility metal {
+  background: var(--gradient-metal);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
-  animation: shimmer 5s linear infinite;
 }
 
-@utility grid-bg {
-  background-image:
-    linear-gradient(color-mix(in srgb, #ffffff 4%, transparent) 1px, transparent 1px),
-    linear-gradient(90deg, color-mix(in srgb, #ffffff 4%, transparent) 1px, transparent 1px);
-  background-size: 56px 56px;
+/* Eyebrow: capped at 0.06em, one per section. */
+@utility eyebrow {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-ink-3);
 }
 
+/* Reduce motion, do not remove it. Direct manipulation is never disabled,
+   because a control that stops answering a finger is broken, not calm
+   (WCAG 2.3.3). The JS side is handled by MotionConfig at the root. */
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
+  *,
+  *::before,
+  *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;

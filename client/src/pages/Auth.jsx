@@ -1,13 +1,29 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Loader2, ArrowLeft, MailCheck, ShieldCheck } from 'lucide-react'
+import { Loader2, ArrowLeft, ShieldCheck } from 'lucide-react'
 import Logo from '../components/Logo.jsx'
+import Notice from '../components/Notice.jsx'
 import { useAuth } from '../lib/store.js'
 import Seo from '../components/Seo.jsx'
 
+// 17px, not 14px. A sign-up form set at 14px is the reason iOS zooms the
+// viewport the moment a field takes focus, and a form that jumps when you touch
+// it is the single least trustworthy thing a finance site can do on a phone.
+//
+// No focus:ring-accent, and no outline-none. outline-none is what forced the
+// hand-rolled ring in the first place; without it the sheet's one focus
+// treatment applies here like it does everywhere else, which is the point of
+// having one.
 const inputClass =
-  'w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3.5 text-sm outline-none transition placeholder:text-white/30 focus:border-gold/50'
+  'well w-full px-[var(--space-3)] py-[var(--space-2)] text-[length:var(--text-body)] text-ink transition placeholder:text-ink-3'
+
+// One filled mulberry button per step, and never two on a screen. Every other
+// control in this file is ink on canvas.
+const submitClass =
+  'flex w-full items-center justify-center gap-2 rounded-md bg-accent py-[var(--space-2)] text-[length:var(--text-body)] text-canvas transition hover:opacity-90 disabled:opacity-50'
+
+const quietClass = 'flex w-full items-center justify-center gap-1.5 text-sm text-ink-3 transition hover:text-ink'
 
 function CodeInput({ value, onChange, onComplete }) {
   const ref = useRef(null)
@@ -16,31 +32,23 @@ function CodeInput({ value, onChange, onComplete }) {
     ref.current?.focus()
   }, [])
 
+  // The six progress dashes underneath this field are gone. They restated, in
+  // mulberry, what the six digits above them already showed.
   return (
-    <div>
-      <input
-        ref={ref}
-        value={value}
-        onChange={(e) => {
-          const digits = e.target.value.replace(/\D/g, '').slice(0, 6)
-          onChange(digits)
-          if (digits.length === 6) onComplete?.(digits)
-        }}
-        inputMode="numeric"
-        autoComplete="one-time-code"
-        placeholder="000000"
-        aria-label="Six digit code"
-        className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-4 text-center font-mono text-3xl tracking-[0.5em] outline-none transition placeholder:text-white/15 focus:border-gold/50"
-      />
-      <div className="mt-3 flex justify-center gap-2">
-        {Array.from({ length: 6 }).map((_, i) => (
-          <span
-            key={i}
-            className={`h-1 w-8 rounded-full transition ${i < value.length ? 'bg-gold' : 'bg-white/10'}`}
-          />
-        ))}
-      </div>
-    </div>
+    <input
+      ref={ref}
+      value={value}
+      onChange={(e) => {
+        const digits = e.target.value.replace(/\D/g, '').slice(0, 6)
+        onChange(digits)
+        if (digits.length === 6) onComplete?.(digits)
+      }}
+      inputMode="numeric"
+      autoComplete="one-time-code"
+      placeholder="000000"
+      aria-label="Six digit code"
+      className="well w-full px-[var(--space-3)] py-[var(--space-3)] text-center font-mono text-3xl tracking-[0.5em] text-ink transition placeholder:text-ink-3"
+    />
   )
 }
 
@@ -70,15 +78,15 @@ function Resend({ onResend }) {
   }
 
   return (
-    <div className="mt-5 text-center">
+    <div className="mt-[var(--space-4)] text-center">
       {seconds > 0 ? (
-        <p className="font-mono text-xs text-white/35">You can ask for another code in {seconds}s</p>
+        <p className="readout text-[length:var(--text-micro)] text-ink-3">You can ask for another code in {seconds}s</p>
       ) : (
-        <button onClick={resend} disabled={busy} className="text-sm font-semibold text-gold hover:underline disabled:opacity-50">
+        <button onClick={resend} disabled={busy} className="text-sm text-ink-2 underline underline-offset-4 transition hover:text-ink disabled:opacity-50">
           {busy ? 'Sending…' : 'Send another code'}
         </button>
       )}
-      {note && <p className="mt-2 text-xs text-white/50">{note}</p>}
+      {note && <p className="mt-[var(--space-1)] text-[length:var(--text-small)] text-ink-2">{note}</p>}
     </div>
   )
 }
@@ -98,7 +106,6 @@ export default function Auth() {
   const [newPassword, setNewPassword] = useState('')
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
-  const [preview, setPreview] = useState('')
   const [busy, setBusy] = useState(false)
 
   const field = (key) => ({
@@ -109,7 +116,6 @@ export default function Auth() {
   function go(nextStep) {
     setError('')
     setNotice('')
-    setPreview('')
     setCode('')
     setStep(nextStep)
   }
@@ -141,9 +147,8 @@ export default function Auth() {
       setNotice(
         res.delivered
           ? `We sent a six digit code to ${form.email}.`
-          : 'Real inbox delivery is not set up yet, so the email went to a test mailbox.'
+          : 'Email is not configured on this server, so the code was written to the server log.'
       )
-      setPreview(res.previewUrl || '')
       setStep('verify')
     })
   }
@@ -160,12 +165,15 @@ export default function Auth() {
     e.preventDefault()
     run(async () => {
       const res = await forgot(form.email)
+      // mailerReady describes the server, not the address, so it is safe to branch
+      // on. `delivered` describes one address and the reset endpoint no longer
+      // returns it, because knowing whether a code went out is knowing whether the
+      // account exists.
       setNotice(
-        res.delivered
+        res.mailerReady
           ? `If that address has an account, a reset code is on its way to ${form.email}.`
-          : 'Real inbox delivery is not set up yet, so the email went to a test mailbox.'
+          : 'Email is not configured on this server, so the code was written to the server log.'
       )
-      setPreview(res.previewUrl || '')
       setStep('reset')
     })
   }
@@ -187,36 +195,29 @@ export default function Auth() {
   }
   const [heading, sub] = HEADINGS[step]
 
-  return (
-    <div className="relative mx-auto flex min-h-[80vh] max-w-md items-center px-4 py-12">
-      <Seo title="Sign in" description="Create a free account to save your XP, streak and level progress." noindex />
-      <div className="absolute top-10 left-1/2 h-72 w-72 -translate-x-1/2 rounded-full bg-gold/10 blur-[110px]" />
+  // Five hand-rolled error boxes collapse into the shared Notice. One recipe for
+  // a message that has to be read is worth more than five that nearly match.
+  const errorNotice = error ? <Notice tone="loss">{error}</Notice> : null
 
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="glass relative w-full rounded-3xl p-8">
+  return (
+    <div className="mx-auto flex min-h-[80vh] max-w-md flex-col justify-center px-4 py-[var(--space-7)]">
+      <Seo title="Sign in" description="Create a free account to save your XP, streak and level progress." noindex />
+
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="panel w-full p-[var(--space-5)]">
         <div className="flex justify-center">
           <Logo size="lg" withText={false} />
         </div>
 
-        <h1 className="mt-6 text-center text-3xl font-extrabold">{heading}</h1>
-        <p className="mt-2 text-center text-sm leading-relaxed text-white/50">{sub}</p>
+        {/* No display serif on this page: the wordmark already carries it, and a
+            five-word step heading set at 48px inside a 448px card wraps to three
+            lines. Hierarchy comes from the space above it instead. */}
+        <h1 className="mt-[var(--space-4)] text-center text-[length:var(--text-heading)] text-ink">{heading}</h1>
+        <p className="mt-[var(--space-1)] text-center text-[length:var(--text-small)] leading-relaxed text-ink-2">{sub}</p>
 
         {notice && (
-          <div className="mt-5 rounded-xl bg-mint/10 px-4 py-3 text-sm text-mint">
-            <p className="flex items-start gap-2">
-              <MailCheck size={15} className="mt-0.5 shrink-0" />
-              {notice}
-            </p>
-            {preview && (
-              <a
-                href={preview}
-                target="_blank"
-                rel="noreferrer noopener"
-                className="mt-2 ml-[23px] inline-block font-semibold underline underline-offset-2 hover:text-white"
-              >
-                Open the email to read your code
-              </a>
-            )}
-          </div>
+          <Notice tone="info" className="mt-[var(--space-4)]">
+            {notice}
+          </Notice>
         )}
 
         <AnimatePresence mode="wait">
@@ -228,21 +229,21 @@ export default function Auth() {
             transition={{ duration: 0.2 }}
           >
             {step === 'login' && (
-              <form onSubmit={onLogin} className="mt-7 space-y-3">
+              <form onSubmit={onLogin} className="mt-[var(--space-5)] space-y-[var(--space-2)]">
                 <input {...field('email')} type="email" placeholder="Email" required autoComplete="email" className={inputClass} />
                 <input {...field('password')} type="password" placeholder="Password" required autoComplete="current-password" className={inputClass} />
-                {error && <p className="rounded-xl bg-flame/10 px-4 py-3 text-sm text-flame">{error}</p>}
-                <button type="submit" disabled={busy} className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gold py-3.5 font-bold text-ink transition hover:bg-gold-soft disabled:opacity-60">
+                {errorNotice}
+                <button type="submit" disabled={busy} className={submitClass}>
                   {busy && <Loader2 size={16} className="animate-spin" />} Log in
                 </button>
-                <button type="button" onClick={() => go('forgot')} className="w-full pt-1 text-center text-sm text-white/50 transition hover:text-gold">
+                <button type="button" onClick={() => go('forgot')} className={`${quietClass} pt-[var(--space-1)]`}>
                   Forgot your password?
                 </button>
               </form>
             )}
 
             {step === 'signup' && (
-              <form onSubmit={onSignupStart} className="mt-7 space-y-3">
+              <form onSubmit={onSignupStart} className="mt-[var(--space-5)] space-y-[var(--space-2)]">
                 <input {...field('name')} placeholder="Your name" required minLength={2} maxLength={40} className={inputClass} />
                 <input {...field('email')} type="email" placeholder="Email" required autoComplete="email" className={inputClass} />
                 <input
@@ -255,12 +256,16 @@ export default function Auth() {
                   className={inputClass}
                 />
                 <input {...field('password')} type="password" placeholder="Password (8+ characters)" required minLength={8} autoComplete="new-password" className={inputClass} />
-                {error && <p className="rounded-xl bg-flame/10 px-4 py-3 text-sm text-flame">{error}</p>}
-                <button type="submit" disabled={busy} className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gold py-3.5 font-bold text-ink transition hover:bg-gold-soft disabled:opacity-60">
+                {errorNotice}
+                <button type="submit" disabled={busy} className={submitClass}>
                   {busy && <Loader2 size={16} className="animate-spin" />} Send verification code
                 </button>
-                <p className="flex items-start gap-2 pt-1 text-[11px] leading-relaxed text-white/35">
-                  <ShieldCheck size={13} className="mt-0.5 shrink-0" />
+                {/* Was 11px ink-3. The sentence that explains what happens to a
+                    stranger's mobile number is the one line on this page most
+                    worth reading, so it is set at the small size in ink-2 rather
+                    than filed away at the bottom in grey. */}
+                <p className="flex items-start gap-[var(--space-1)] pt-[var(--space-1)] text-[length:var(--text-small)] leading-relaxed text-ink-2">
+                  <ShieldCheck size={14} className="mt-1 shrink-0 text-ink-3" aria-hidden="true" />
                   Your mobile number is stored encrypted, is never shown on the site, and is never shared. We use it only
                   to reach you about your account.
                 </p>
@@ -268,38 +273,34 @@ export default function Auth() {
             )}
 
             {step === 'verify' && (
-              <div className="mt-7">
+              <div className="mt-[var(--space-5)] space-y-[var(--space-2)]">
                 <CodeInput value={code} onChange={setCode} onComplete={onVerify} />
-                {error && <p className="mt-4 rounded-xl bg-flame/10 px-4 py-3 text-sm text-flame">{error}</p>}
-                <button
-                  onClick={() => onVerify()}
-                  disabled={busy || code.length !== 6}
-                  className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl bg-gold py-3.5 font-bold text-ink transition hover:bg-gold-soft disabled:opacity-40"
-                >
+                {errorNotice}
+                <button onClick={() => onVerify()} disabled={busy || code.length !== 6} className={submitClass}>
                   {busy && <Loader2 size={16} className="animate-spin" />} Verify and create account
                 </button>
                 <Resend onResend={() => resendSignupCode(form.email)} />
-                <button onClick={() => go('signup')} className="mt-4 flex w-full items-center justify-center gap-1.5 text-sm text-white/45 transition hover:text-white">
-                  <ArrowLeft size={14} /> Change details
+                <button onClick={() => go('signup')} className={`${quietClass} pt-[var(--space-1)]`}>
+                  <ArrowLeft size={14} aria-hidden="true" /> Change details
                 </button>
               </div>
             )}
 
             {step === 'forgot' && (
-              <form onSubmit={onForgot} className="mt-7 space-y-3">
+              <form onSubmit={onForgot} className="mt-[var(--space-5)] space-y-[var(--space-2)]">
                 <input {...field('email')} type="email" placeholder="Email" required autoComplete="email" className={inputClass} />
-                {error && <p className="rounded-xl bg-flame/10 px-4 py-3 text-sm text-flame">{error}</p>}
-                <button type="submit" disabled={busy} className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gold py-3.5 font-bold text-ink transition hover:bg-gold-soft disabled:opacity-60">
+                {errorNotice}
+                <button type="submit" disabled={busy} className={submitClass}>
                   {busy && <Loader2 size={16} className="animate-spin" />} Send reset code
                 </button>
-                <button type="button" onClick={() => go('login')} className="flex w-full items-center justify-center gap-1.5 pt-1 text-sm text-white/45 transition hover:text-white">
-                  <ArrowLeft size={14} /> Back to log in
+                <button type="button" onClick={() => go('login')} className={`${quietClass} pt-[var(--space-1)]`}>
+                  <ArrowLeft size={14} aria-hidden="true" /> Back to log in
                 </button>
               </form>
             )}
 
             {step === 'reset' && (
-              <form onSubmit={onReset} className="mt-7 space-y-4">
+              <form onSubmit={onReset} className="mt-[var(--space-5)] space-y-[var(--space-2)]">
                 <CodeInput value={code} onChange={setCode} />
                 <input
                   value={newPassword}
@@ -311,13 +312,13 @@ export default function Auth() {
                   autoComplete="new-password"
                   className={inputClass}
                 />
-                {error && <p className="rounded-xl bg-flame/10 px-4 py-3 text-sm text-flame">{error}</p>}
-                <button type="submit" disabled={busy || code.length !== 6} className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gold py-3.5 font-bold text-ink transition hover:bg-gold-soft disabled:opacity-40">
+                {errorNotice}
+                <button type="submit" disabled={busy || code.length !== 6} className={submitClass}>
                   {busy && <Loader2 size={16} className="animate-spin" />} Set new password
                 </button>
                 <Resend onResend={() => forgot(form.email)} />
-                <button type="button" onClick={() => go('login')} className="flex w-full items-center justify-center gap-1.5 text-sm text-white/45 transition hover:text-white">
-                  <ArrowLeft size={14} /> Back to log in
+                <button type="button" onClick={() => go('login')} className={`${quietClass} pt-[var(--space-1)]`}>
+                  <ArrowLeft size={14} aria-hidden="true" /> Back to log in
                 </button>
               </form>
             )}
@@ -325,21 +326,25 @@ export default function Auth() {
         </AnimatePresence>
 
         {(step === 'login' || step === 'signup') && (
-          <p className="mt-6 text-center text-sm text-white/50">
+          <p className="mt-[var(--space-4)] text-center text-[length:var(--text-small)] text-ink-2">
             {step === 'signup' ? 'Already have an account? ' : 'New here? '}
-            <button onClick={() => go(step === 'signup' ? 'login' : 'signup')} className="font-semibold text-gold hover:underline">
+            <button onClick={() => go(step === 'signup' ? 'login' : 'signup')} className="text-ink underline underline-offset-4">
               {step === 'signup' ? 'Log in' : 'Create one'}
             </button>
           </p>
         )}
-
-        <p className="mt-6 text-center text-[11px] leading-relaxed text-white/30">
-          Educational content only. InvestoMillionaire is not a SEBI registered adviser and gives no investment advice.{' '}
-          <Link to="/disclaimer" className="underline hover:text-white/50">
-            Read the disclaimer
-          </Link>
-        </p>
       </motion.div>
+
+      {/* Moved out of the card and onto the canvas. Inside the panel it was a
+          fourth grey paragraph under the fold of a form; out here it is the last
+          thing on the page and it sits at its own measure, which is what
+          "legible rather than hidden" means for a compliance line. */}
+      <p className="mt-[var(--space-4)] max-w-[var(--measure)] text-[length:var(--text-small)] leading-relaxed text-ink-2">
+        Educational content only. InvestoMillionaire is not a SEBI registered adviser and gives no investment advice.{' '}
+        <Link to="/disclaimer" className="text-ink underline underline-offset-4">
+          Read the disclaimer
+        </Link>
+      </p>
     </div>
   )
 }

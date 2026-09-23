@@ -1,17 +1,17 @@
 import { useRef, useState } from 'react'
 import { useFrame } from '@react-three/fiber'
-import * as THREE from 'three'
 import Label from './Label.jsx'
+import { token } from './Scene.jsx'
 
 // A bank does not sell a product, it rents money. Deposits come in cheap, loans
 // go out dearer, and the gap is the whole business. Bad loans leak out of it.
 const STAGES = [
-  { name: 'Deposits', value: 100, color: '#5ee0ff', note: 'CASA is the cheapest funding a bank has' },
-  { name: 'Lent out', value: 78, color: '#eaa81e', note: 'Credit-deposit ratio, usually 70 to 80 percent' },
-  { name: 'Interest earned', value: 100, color: '#33e29b', note: 'Yield on advances' },
-  { name: 'Interest paid', value: 62, color: '#ff8b3d', note: 'Cost of funds' },
-  { name: 'Net interest income', value: 38, color: '#ffcf5c', note: 'The gap. NIM is this over assets' },
-  { name: 'After provisions', value: 27, color: '#ff5d5d', note: 'Credit cost eats into it every year' },
+  { name: 'Deposits', value: 100, color: token('ink-3'), note: 'CASA is the cheapest funding a bank has' },
+  { name: 'Lent out', value: 78, color: token('ink-2'), note: 'Credit-deposit ratio, usually 70 to 80 percent' },
+  { name: 'Interest earned', value: 100, color: token('gain'), note: 'Yield on advances' },
+  { name: 'Interest paid', value: 62, color: token('ink-2'), note: 'Cost of funds' },
+  { name: 'Net interest income', value: 38, color: token('accent'), note: 'The gap. NIM is this over assets' },
+  { name: 'After provisions', value: 27, color: token('loss'), note: 'Credit cost eats into it every year' },
 ]
 
 function Slab({ stage, index, hovered, setHovered }) {
@@ -24,7 +24,6 @@ function Slab({ stage, index, hovered, setHovered }) {
     if (!mesh.current) return
     const target = active ? 1.08 : 1
     mesh.current.scale.y += (target - mesh.current.scale.y) * delta * 8
-    mesh.current.position.y = 0.35 + Math.sin(state.clock.elapsedTime * 1.1 + index) * 0.03
   })
 
   return (
@@ -48,14 +47,14 @@ function Slab({ stage, index, hovered, setHovered }) {
           roughness={0.32}
         />
       </mesh>
-      <Label position={[-width / 2 - 1.5, 0.35, 0]} size="xs" tone={active ? 'gold' : 'default'}>
+      <Label position={[-width / 2 - 1.5, 0.35, 0]} size="xs" tone={active ? 'accent' : 'default'}>
         {stage.name}
       </Label>
-      <Label position={[width / 2 + 0.8, 0.35, 0]} size="xs" tone="gold">
+      <Label position={[width / 2 + 0.8, 0.35, 0]} size="xs" tone="accent">
         {stage.value}
       </Label>
       {active && (
-        <Label position={[0, 1.3, 0]} size="xs" tone="mint">
+        <Label position={[0, 1.3, 0]} size="xs" tone="accent">
           {stage.note}
         </Label>
       )}
@@ -88,7 +87,7 @@ function Leak() {
       <bufferGeometry>
         <bufferAttribute attach="attributes-position" args={[positions, 3]} />
       </bufferGeometry>
-      <pointsMaterial size={0.09} color="#ff5d5d" transparent opacity={0.7} blending={THREE.AdditiveBlending} />
+      <pointsMaterial size={0.09} color={token('loss')} transparent opacity={0.7} />
     </points>
   )
 }
@@ -98,16 +97,16 @@ export default function BankFlow3D() {
 
   return (
     <group position={[0, -1.2, 0]}>
-      <gridHelper args={[16, 16, '#1c2a48', '#121c33']} />
+      <gridHelper args={[16, 16, token('hairline-strong'), token('hairline')]} />
       {STAGES.map((stage, i) => (
         <Slab key={stage.name} stage={stage} index={i} hovered={hovered} setHovered={setHovered} />
       ))}
       {/* bad loans falling out of the bottom */}
       <Leak />
-      <Label position={[0, 3.4, 0]} tone="gold">
+      <Label position={[0, 3.4, 0]} tone="accent">
         a bank rents money, the spread is the business
       </Label>
-      <Label position={[0, -0.55, 3.6]} size="xs" tone="flame">
+      <Label position={[0, -0.55, 3.6]} size="xs" tone="loss">
         provisions for bad loans
       </Label>
     </group>

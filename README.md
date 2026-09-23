@@ -60,8 +60,8 @@ Vite proxies `/api` to port 5050, so nothing else needs configuring in developme
 | `JWT_SECRET` | Signs both login tokens and quiz session tokens. Use a long random string. |
 | `CLIENT_ORIGIN` | Comma separated list of allowed CORS origins |
 | `FIELD_ENCRYPTION_KEY` | 32 bytes of hex. Encrypts mobile numbers at rest. Generate with `openssl rand -hex 32`. |
-| `SMTP_USER` / `SMTP_PASS` | Gmail address and an **App Password**, not the account password. Leave blank in dev. |
-| `SMTP_HOST` / `SMTP_PORT` / `SMTP_FROM` | Default to Gmail on port 465. |
+| `RESEND_API_KEY` | Sends the OTP email over Resend's HTTPS API. Leave blank in dev. |
+| `MAIL_FROM` | Sender address. Has to sit on a domain verified in Resend. |
 | `ADMIN_TOKEN` | Shared secret for the admin endpoint that can decrypt mobile numbers. |
 
 Losing `FIELD_ENCRYPTION_KEY` means every stored mobile number becomes unreadable. There is no
@@ -139,8 +139,9 @@ TTL index. Password reset runs the same machinery with `purpose: 'reset'`, and `
 answers identically whether or not the address exists so it cannot be used to discover who has an
 account.
 
-Without SMTP credentials the mailer prints the code to the server log instead of sending it, so the
-whole flow is testable on a laptop with no mail account.
+Without `RESEND_API_KEY` the mailer prints the code to the server log instead of sending it, so the
+whole flow is testable on a laptop with no mail account. Mail goes over HTTPS rather than SMTP
+because Render blocks outbound SMTP ports on free instances.
 
 **Mobile numbers** are encrypted with AES-256-GCM before they touch the database. The column is
 `select: false`, `publicProfile()` omits it, and no public endpoint returns it in any form. Alongside
@@ -163,7 +164,7 @@ server/
   src/routes/              auth, news, ipo, reco, quiz, progress, admin
   src/models/              User, Attempt, Otp, Pick
   src/lib/crypto.js        AES-256-GCM field encryption, HMAC blind index, OTP hashing
-  src/lib/mailer.js        OTP email, falls back to the server log without SMTP
+  src/lib/mailer.js        OTP email over the Resend API, falls back to the server log
   src/data/brokers.js      research firm, rating and target detection
   src/scripts/pick.js      npm run pick, add or remove a desk note
 client/

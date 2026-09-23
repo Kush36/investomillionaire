@@ -1,49 +1,64 @@
-import Scene from './Scene.jsx'
-import CandleChart3D from './CandleChart3D.jsx'
-import Towers3D from './Towers3D.jsx'
-import BalanceScale3D from './BalanceScale3D.jsx'
-import OrderBook3D from './OrderBook3D.jsx'
-import MoatCastle3D from './MoatCastle3D.jsx'
-import Scatter3D from './Scatter3D.jsx'
-import Compound3D from './Compound3D.jsx'
-import PayoffSurface3D from './PayoffSurface3D.jsx'
-import Rotation3D from './Rotation3D.jsx'
-import BankFlow3D from './BankFlow3D.jsx'
-import Funnel3D from './Funnel3D.jsx'
-import SessionClock3D from './SessionClock3D.jsx'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 
-const CAMERAS = {
-  candles: [0, 2, 10],
-  towers: [0, 4.5, 15],
-  balance: [0, 3, 13],
-  orderbook: [0, 4, 10],
-  moat: [0, 4.5, 13],
-  scatter: [5, 6, 15],
-  compound: [0, 4, 13],
-  payoff: [0, 6, 12],
-  rotation: [0, 5, 13],
-  bankflow: [0, 3.6, 11],
-  funnel: [0, 4, 15],
-  session: [0, 4, 15],
+// three.js, the fiber reconciler and drei are a third of everything this site ships,
+// and six of its thirteen routes never draw a diagram at all. Keeping the import
+// behind a dynamic boundary takes that weight off those routes completely, and off
+// the first paint of the routes that do use it, since a diagram is rarely the thing
+// the reader is looking at when the page opens.
+const Impl = lazy(() => import('./LessonSceneImpl.jsx'))
+
+/**
+ * Resolves true once the element is within `margin` of the viewport, then stops
+ * watching. Loading starts before the diagram is on screen, so by the time it is
+ * scrolled to it has usually already arrived.
+ */
+export function useNearViewport(margin = '500px') {
+  const ref = useRef(null)
+  const [near, setNear] = useState(false)
+
+  useEffect(() => {
+    if (near) return
+    const el = ref.current
+    if (!el) return
+    // Old browsers and jsdom get the diagram immediately rather than never.
+    if (typeof IntersectionObserver !== 'function') {
+      setNear(true)
+      return
+    }
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry.isIntersecting) return
+        setNear(true)
+        observer.disconnect()
+      },
+      { rootMargin: margin }
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [near, margin])
+
+  return [ref, near]
+}
+
+// Holds the exact height the canvas will take, so arrival shifts nothing.
+function Reserved({ height }) {
+  return (
+    <div className="well" style={{ height }} aria-hidden="true" />
+  )
 }
 
 export default function LessonScene({ scene, height = 460 }) {
-  const camera = CAMERAS[scene.type] ?? [0, 3, 11]
+  const [ref, near] = useNearViewport()
 
   return (
-    <Scene height={height} camera={camera}>
-      {scene.type === 'candles' && <CandleChart3D preset={scene.preset} />}
-      {scene.type === 'towers' && <Towers3D preset={scene.preset} bars={scene.bars} caption={scene.caption} unit={scene.unit} />}
-      {scene.type === 'balance' && <BalanceScale3D />}
-      {scene.type === 'orderbook' && <OrderBook3D />}
-      {scene.type === 'moat' && <MoatCastle3D />}
-      {scene.type === 'scatter' && <Scatter3D />}
-      {scene.type === 'compound' && <Compound3D preset={scene.preset} />}
-      {scene.type === 'payoff' && <PayoffSurface3D preset={scene.preset} />}
-      {scene.type === 'rotation' && <Rotation3D />}
-      {scene.type === 'bankflow' && <BankFlow3D />}
-      {scene.type === 'funnel' && <Funnel3D />}
-      {scene.type === 'session' && <SessionClock3D />}
-    </Scene>
+    <div ref={ref}>
+      {near ? (
+        <Suspense fallback={<Reserved height={height} />}>
+          <Impl scene={scene} height={height} />
+        </Suspense>
+      ) : (
+        <Reserved height={height} />
+      )}
+    </div>
   )
 }

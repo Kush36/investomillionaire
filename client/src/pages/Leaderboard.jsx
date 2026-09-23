@@ -1,10 +1,9 @@
 import { useEffect, useState } from 'react'
-import { Trophy, Flame, Zap } from 'lucide-react'
+import { Flame, Zap } from 'lucide-react'
 import { api } from '../lib/api.js'
 import { useAuth } from '../lib/store.js'
+import Chip from '../components/Chip.jsx'
 import Seo from '../components/Seo.jsx'
-
-const MEDALS = ['🥇', '🥈', '🥉']
 
 export default function Leaderboard() {
   const { user } = useAuth()
@@ -19,44 +18,66 @@ export default function Leaderboard() {
   }, [])
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-14 sm:px-6">
+    <div className="mx-auto max-w-3xl px-4 py-[var(--space-7)] sm:px-6">
       <Seo title="Leaderboard" description="Top learners by XP. Read lessons, clear quiz levels, build a streak and climb." />
-      <div className="flex items-center gap-3">
-        <Trophy className="text-gold" size={28} />
-        <h1 className="text-4xl font-extrabold sm:text-5xl">Leaderboard</h1>
-      </div>
-      <p className="mt-3 text-white/55">Top 20 by XP. Read lessons, clear levels, climb.</p>
+
+      {/* The trophy glyph beside the title has gone with the medal emoji. A
+          ranked table does not need a picture of a trophy to say what it is, and
+          the serif title is the one voice moment the page gets. */}
+      <h1 className="display">Leaderboard</h1>
+      <p className="prose mt-[var(--space-3)]">Top 20 by XP. Read lessons, clear levels, climb.</p>
 
       {loading ? (
-        <p className="py-20 text-center text-white/40">Loading…</p>
+        <p className="mt-[var(--space-6)] text-ink-3">Loading…</p>
       ) : leaders.length === 0 ? (
-        <p className="py-20 text-center text-white/40">Nobody has scored yet. Be the first.</p>
+        <p className="mt-[var(--space-6)] text-ink-3">Nobody has scored yet. Be the first.</p>
       ) : (
-        <div className="mt-9 space-y-2">
+        <div className="mt-[var(--space-6)] space-y-[var(--space-1)]">
           {leaders.map((leader) => {
             const isMe = user?.name === leader.name
             return (
               <div
                 key={`${leader.rank}-${leader.name}`}
-                className={`glass flex items-center gap-4 rounded-2xl p-4 ${isMe ? 'border-gold/50 bg-gold/5' : ''}`}
+                className="panel flex items-center gap-[var(--space-3)] p-[var(--space-3)]"
+                // Your row is marked by a 2px mulberry rail and nothing else.
+                // The old treatment painted an accent border AND an accent tint
+                // AND an accent label, three mulberry surfaces on one row, which
+                // is how an accent stops being one. The ring is listed alongside
+                // because an inline box-shadow replaces the panel's rather than
+                // adding to it.
+                style={isMe ? { boxShadow: 'inset 2px 0 0 var(--color-accent), var(--shadow-ring)' } : undefined}
               >
-                <span className="w-9 text-center text-lg font-extrabold">
-                  {MEDALS[leader.rank - 1] ?? <span className="font-mono text-sm text-white/35">{leader.rank}</span>}
+                {/* Rank as a typeset numeral in a fixed right-aligned column, so
+                    every rank in the list shares one edge. Gold, silver and
+                    bronze emoji made the first three rows a different height and
+                    a different typeface from the other seventeen. */}
+                <span
+                  className={`readout w-[var(--space-5)] shrink-0 text-right text-[length:var(--text-small)] ${
+                    leader.rank <= 3 ? 'text-ink' : 'text-ink-3'
+                  }`}
+                >
+                  {leader.rank}
                 </span>
-                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-gold/15 font-bold text-gold">
+
+                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-surface-2 text-[length:var(--text-small)] text-ink-3">
                   {leader.name.charAt(0).toUpperCase()}
                 </span>
+
                 <div className="min-w-0 flex-1">
-                  <p className="truncate font-semibold">
-                    {leader.name} {isMe && <span className="font-mono text-[10px] text-gold">YOU</span>}
+                  <p className="flex items-center gap-[var(--space-2)] text-ink">
+                    <span className="min-w-0 truncate">{leader.name}</span>
+                    {isMe && <Chip className="shrink-0">You</Chip>}
                   </p>
-                  <p className="font-mono text-[11px] text-white/35">{leader.badgeCount} badges</p>
+                  <p className="readout text-[length:var(--text-micro)] text-ink-3">{leader.badgeCount} badges</p>
                 </div>
-                <span className="flex items-center gap-1 font-mono text-sm text-flame">
-                  <Flame size={13} /> {leader.streak}
+
+                <span className="readout flex shrink-0 items-center gap-1 text-[length:var(--text-micro)] text-ink-3">
+                  <Flame size={12} aria-hidden="true" /> {leader.streak}
                 </span>
-                <span className="flex items-center gap-1 font-mono text-sm font-bold text-gold">
-                  <Zap size={13} /> {leader.xp}
+                {/* XP is what the list is sorted by, so it is the only figure in
+                    the row set at full ink and body size. */}
+                <span className="readout flex shrink-0 items-center gap-1 text-ink">
+                  <Zap size={12} aria-hidden="true" /> {leader.xp}
                 </span>
               </div>
             )

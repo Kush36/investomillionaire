@@ -9,12 +9,12 @@ export default defineConfig({
     proxy: { '/api': { target: 'http://localhost:5050', changeOrigin: true } },
   },
   build: {
-    rollupOptions: {
-      output: {
-        manualChunks: {
-          three: ['three', '@react-three/fiber', '@react-three/drei'],
-        },
-      },
-    },
+    // There used to be a manualChunks entry naming three, @react-three/fiber and
+    // @react-three/drei as one chunk. Fiber depends on React, so Rollup resolved
+    // React and react-dom into that chunk too, which made a 304 kB gzip bundle a
+    // hard dependency of every route: /disclaimer was issuing a modulepreload for
+    // three.js in order to get React. Routes and diagrams now load through dynamic
+    // imports, so Rollup works the split out from the real graph instead.
+    rollupOptions: {},
   },
 })

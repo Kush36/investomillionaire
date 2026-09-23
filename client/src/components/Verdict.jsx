@@ -1,8 +1,18 @@
+import { Chip } from './Chip.jsx'
+
+// Verdict tones are a rating ladder, not a profit and loss readout, so they draw
+// from the ink ladder with accent at the top. gain/loss stay reserved for money.
+//
+// The badge no longer carries the ladder. Three of the four rungs render as a
+// neutral chip, because the word inside it already says AVOID or APPLY and the
+// hero keeps the ladder visible where it can actually be read: the score colour
+// and the progress bar. Only the top rung spends the accent, which is how an IPO
+// list ends up with three mulberry marks instead of one on every card.
 const TONES = {
-  green: { bg: 'bg-mint/15', text: 'text-mint', border: 'border-mint/40', bar: '#33e29b' },
-  lime: { bg: 'bg-gold/15', text: 'text-gold', border: 'border-gold/40', bar: '#eaa81e' },
-  amber: { bg: 'bg-[#ff8b3d]/15', text: 'text-[#ff8b3d]', border: 'border-[#ff8b3d]/40', bar: '#ff8b3d' },
-  red: { bg: 'bg-flame/15', text: 'text-flame', border: 'border-flame/40', bar: '#ff5d5d' },
+  green: { bg: 'bg-accent-tint', text: 'text-accent', border: 'border-accent', bar: 'var(--color-accent)', chip: 'accent' },
+  lime: { bg: 'bg-surface-2', text: 'text-ink', border: 'border-hairline-strong', bar: 'var(--color-ink)', chip: 'neutral' },
+  amber: { bg: 'bg-surface-2', text: 'text-ink-2', border: 'border-hairline', bar: 'var(--color-ink-2)', chip: 'neutral' },
+  red: { bg: 'bg-surface-2', text: 'text-ink-3', border: 'border-hairline', bar: 'var(--color-ink-3)', chip: 'neutral' },
 }
 
 export function verdictTone(tone) {
@@ -10,15 +20,11 @@ export function verdictTone(tone) {
 }
 
 export function VerdictBadge({ verdict, size = 'sm' }) {
-  const tone = verdictTone(verdict.tone)
+  if (!verdict) return null
   return (
-    <span
-      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 font-mono font-bold tracking-widest ${tone.bg} ${tone.text} ${tone.border} ${
-        size === 'lg' ? 'text-sm' : 'text-[10px]'
-      }`}
-    >
+    <Chip tone={verdictTone(verdict.tone).chip} size={size === 'lg' ? 'md' : 'sm'}>
       {verdict.verdict}
-    </span>
+    </Chip>
   )
 }
 
@@ -26,15 +32,9 @@ export function GmpChip({ gmp }) {
   if (!gmp || gmp.percent == null) return null
   const positive = gmp.percent > 0
   return (
-    <span
-      className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 font-mono text-[10px] font-bold tracking-widest"
-      style={{
-        background: positive ? 'rgba(51,226,155,0.14)' : 'rgba(255,93,93,0.14)',
-        color: positive ? '#33e29b' : '#ff5d5d',
-      }}
-    >
+    <Chip tone={positive ? 'gain' : 'loss'}>
       GMP {positive ? '+' : ''}
       {gmp.percent}%
-    </span>
+    </Chip>
   )
 }

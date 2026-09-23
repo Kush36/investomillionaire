@@ -2,6 +2,7 @@ import { useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import Label from './Label.jsx'
+import { token } from './Scene.jsx'
 
 // Abramowitz and Stegun 26.2.17. Accurate enough to draw a surface with.
 function normalCdf(x) {
@@ -81,9 +82,9 @@ export default function PayoffSurface3D({ preset = 'long-call' }) {
     const geo = new THREE.PlaneGeometry(11, 7, SPOT_STEPS, TIME_STEPS)
     const position = geo.attributes.position
     const colors = new Float32Array(position.count * 3)
-    const profit = new THREE.Color('#33e29b')
-    const loss = new THREE.Color('#ff5d5d')
-    const flat = new THREE.Color('#8b5cf6')
+    const profit = new THREE.Color(token('gain'))
+    const loss = new THREE.Color(token('loss'))
+    const flat = new THREE.Color(token('ink-3'))
 
     let peak = 0.001
     const values = new Float32Array(position.count)
@@ -115,10 +116,6 @@ export default function PayoffSurface3D({ preset = 'long-call' }) {
     return geo
   }, [strategy])
 
-  useFrame((state) => {
-    if (mesh.current) mesh.current.position.y = Math.sin(state.clock.elapsedTime * 0.7) * 0.05
-  })
-
   return (
     <group position={[0, -0.6, 0]}>
       <group ref={mesh}>
@@ -127,27 +124,27 @@ export default function PayoffSurface3D({ preset = 'long-call' }) {
         </mesh>
         {/* the wire grid is what makes the kink at the strike and the time sag readable */}
         <mesh geometry={geometry}>
-          <meshBasicMaterial color="#0b1220" wireframe transparent opacity={0.35} />
+          <meshBasicMaterial color={token('hairline-strong')} wireframe transparent opacity={0.35} />
         </mesh>
       </group>
 
       {/* break-even plane: everything above it is profit */}
       <mesh rotation={[-Math.PI / 2, 0, 0]}>
         <planeGeometry args={[11, 7]} />
-        <meshBasicMaterial color="#eaa81e" transparent opacity={0.13} side={THREE.DoubleSide} depthWrite={false} />
+        <meshBasicMaterial color={token('accent')} transparent opacity={0.13} side={THREE.DoubleSide} depthWrite={false} />
       </mesh>
 
-      <Label position={[0, 3.6, 0]} tone="gold">
+      <Label position={[0, 3.6, 0]} tone="accent">
         {strategy.label}
       </Label>
       <Label position={[0, 3.0, 0]} size="xs">
         {strategy.note}
       </Label>
 
-      <Label position={[-6.3, 0, 0]} size="xs" tone="flame">
+      <Label position={[-6.3, 0, 0]} size="xs" tone="loss">
         spot {SPOT_MIN}
       </Label>
-      <Label position={[6.3, 0, 0]} size="xs" tone="mint">
+      <Label position={[6.3, 0, 0]} size="xs" tone="gain">
         spot {SPOT_MAX}
       </Label>
       <Label position={[0, 0, 4.3]} size="xs">
@@ -156,7 +153,7 @@ export default function PayoffSurface3D({ preset = 'long-call' }) {
       <Label position={[0, 0, -4.3]} size="xs">
         3 months left
       </Label>
-      <Label position={[-4.6, 1.6, -3.2]} size="xs" tone="gold">
+      <Label position={[-4.6, 1.6, -3.2]} size="xs" tone="accent">
         height = profit and loss
       </Label>
     </group>

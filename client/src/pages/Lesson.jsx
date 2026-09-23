@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams, Navigate } from 'react-router-dom'
-import { motion } from 'framer-motion'
-import { ArrowLeft, ArrowRight, BookOpen, Lightbulb, CheckCircle2 } from 'lucide-react'
+import { ArrowLeft, ArrowRight, CheckCircle2 } from 'lucide-react'
 import LessonScene from '../three/LessonScene.jsx'
 import { findLesson, LESSONS, TRACK_META } from '../data/lessons.js'
 import { api } from '../lib/api.js'
 import { useAuth } from '../lib/store.js'
 import Seo from '../components/Seo.jsx'
+import Chip from '../components/Chip.jsx'
 
 export default function Lesson() {
   const { track, level } = useParams()
@@ -40,129 +40,137 @@ export default function Lesson() {
   }
 
   return (
-    <article className="mx-auto max-w-4xl px-4 py-12 sm:px-6">
+    <article className="mx-auto max-w-[var(--page-max)] px-[var(--page-inset)] py-[var(--space-6)]">
       <Seo
         title={lesson.title}
         description={`${lesson.subtitle}. Level ${lesson.level} of the ${meta.label.toLowerCase()} track, a ${lesson.minutes} minute read built around an interactive 3D diagram.`}
         type="article"
       />
-      <Link to={`/learn/${track}`} className="inline-flex items-center gap-2 font-mono text-xs tracking-widest text-white/40 uppercase hover:text-gold">
-        <ArrowLeft size={14} /> {meta.label}
+      <Link
+        to={`/learn/${track}`}
+        className="eyebrow inline-flex items-center gap-[var(--space-1)] transition hover:text-ink"
+      >
+        <ArrowLeft size={13} /> {meta.label}
       </Link>
 
-      <header className="mt-6">
-        <span
-          className="inline-flex items-center gap-2 rounded-full px-3 py-1 font-mono text-[11px] tracking-widest uppercase"
-          style={{ background: `${meta.accent}1f`, color: meta.accent }}
-        >
+      {/* The one voice moment. Instrument Serif appears here and nowhere else on
+          the page, on the thing the page is actually about. The level and the
+          length sit above it as the single eyebrow this screen is allowed. */}
+      <header className="mt-[var(--space-6)]">
+        <p className="eyebrow">
           Level {lesson.level} · {lesson.minutes} min read
-        </span>
-        <h1 className="mt-5 text-4xl leading-tight font-extrabold sm:text-5xl">{lesson.title}</h1>
-        <p className="mt-3 text-lg text-white/55">{lesson.subtitle}</p>
+        </p>
+        <h1 className="display mt-[var(--space-3)]">{lesson.title}</h1>
+        <p className="prose mt-[var(--space-4)]" style={{ fontSize: 'var(--text-heading)', lineHeight: 1.35 }}>
+          {lesson.subtitle}
+        </p>
       </header>
 
-      <div className="my-10">
+      <figure className="my-[var(--space-6)]">
         <LessonScene scene={lesson.scene} height={460} />
-        <p className="mt-3 text-center font-mono text-[11px] tracking-widest text-white/30 uppercase">
-          interactive diagram · drag, zoom, hover
-        </p>
-      </div>
+        <figcaption className="eyebrow mt-[var(--space-2)]">interactive diagram · drag, zoom, hover</figcaption>
+      </figure>
 
-      <div className="space-y-10">
-        {lesson.sections.map((section, i) => (
-          <motion.section
-            key={section.heading}
-            initial={{ opacity: 0, y: 18 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: '-80px' }}
-            transition={{ duration: 0.4, delay: i * 0.04 }}
-          >
-            <h2 className="text-2xl font-bold" style={{ color: meta.accent }}>
-              {section.heading}
-            </h2>
-            {section.body && <p className="mt-4 text-[17px] leading-relaxed text-white/70">{section.body}</p>}
+      {/* Big gaps between sections, tight gaps inside one. The separation is
+          done by air, so a heading needs no colour and no extra weight. */}
+      <div className="space-y-[var(--space-6)]">
+        {lesson.sections.map((section) => (
+          <section key={section.heading}>
+            <h2>{section.heading}</h2>
+            {section.body && <p className="prose mt-[var(--space-3)]">{section.body}</p>}
 
             {section.bullets && (
-              <ul className="mt-5 space-y-3">
+              <ul className="prose mt-[var(--space-3)] space-y-[var(--space-2)]">
                 {section.bullets.map((point) => (
-                  <li key={point} className="flex gap-3 text-white/65">
-                    <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: meta.accent }} />
-                    <span className="leading-relaxed">{point}</span>
+                  <li key={point} className="flex gap-[var(--space-2)]">
+                    <span className="mt-[0.7em] h-1 w-1 shrink-0 rounded-full bg-ink-3" />
+                    <span>{point}</span>
                   </li>
                 ))}
               </ul>
             )}
 
+            {/* A worked example is an aside, so it recesses into a well rather
+                than floating on a second panel inside the reading column. */}
             {section.example && (
-              <div className="glass mt-6 rounded-2xl border-l-2 p-6" style={{ borderLeftColor: meta.accent }}>
-                <div className="flex items-center gap-2">
-                  <Lightbulb size={16} style={{ color: meta.accent }} />
-                  <h3 className="font-bold">{section.example.title}</h3>
-                </div>
-                <p className="mt-3 leading-relaxed text-white/65">{section.example.body}</p>
-              </div>
+              <aside className="well mt-[var(--space-4)] max-w-[var(--measure)] p-[var(--space-4)]">
+                <h3>{section.example.title}</h3>
+                <p className="mt-[var(--space-2)] text-[length:var(--text-small)] leading-relaxed text-ink-2">
+                  {section.example.body}
+                </p>
+              </aside>
             )}
-          </motion.section>
+          </section>
         ))}
       </div>
 
-      <section className="mt-14">
-        <div className="mb-4 flex items-center gap-2">
-          <BookOpen size={17} className="text-gold" />
-          <h2 className="text-xl font-bold">Words worth knowing</h2>
-        </div>
-        <div className="grid gap-3 sm:grid-cols-3">
+      {/* A glossary is a definition list, not three cards. Term names carry in
+          the mono face; hairlines do the separating that the card edges did. */}
+      <section className="mt-[var(--space-6)]">
+        <h2>Words worth knowing</h2>
+        <dl className="mt-[var(--space-4)] max-w-[var(--measure)] border-b border-hairline">
           {lesson.terms.map((term) => (
-            <div key={term.term} className="glass rounded-2xl p-5">
-              <h4 className="font-mono text-sm font-bold text-gold">{term.term}</h4>
-              <p className="mt-2 text-sm leading-relaxed text-white/60">{term.meaning}</p>
+            <div
+              key={term.term}
+              className="grid gap-[var(--space-1)] border-t border-hairline py-[var(--space-3)] sm:grid-cols-[13rem_1fr] sm:gap-[var(--space-4)]"
+            >
+              <dt className="readout text-[length:var(--text-small)] text-ink">{term.term}</dt>
+              <dd className="text-[length:var(--text-small)] leading-relaxed text-ink-2">{term.meaning}</dd>
             </div>
           ))}
-        </div>
+        </dl>
       </section>
 
-      <div className="glass mt-12 flex flex-wrap items-center justify-between gap-4 rounded-2xl p-6">
-        <div>
-          <h3 className="font-bold">Done reading?</h3>
-          <p className="text-sm text-white/50">
-            {alreadyRead || marked ? 'Marked complete. Now go prove it.' : 'Mark it complete for +15 XP, then take the level quiz.'}
+      {/* The one accent on the screen: the action the page exists to send you to. */}
+      <section className="mt-[var(--space-7)] flex flex-wrap items-center justify-between gap-[var(--space-4)] border-t border-hairline pt-[var(--space-4)]">
+        <div className="max-w-[var(--measure)]">
+          <h3>Done reading?</h3>
+          <p className="mt-[var(--space-1)] text-[length:var(--text-small)] text-ink-2">
+            {alreadyRead || marked
+              ? 'Marked complete. Now go prove it.'
+              : 'Mark it complete for +15 XP, then take the level quiz.'}
           </p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex items-center gap-[var(--space-2)]">
           {!alreadyRead && !marked && (
-            <button onClick={markRead} className="rounded-full border border-white/15 px-5 py-2.5 text-sm font-semibold transition hover:border-gold/50 hover:text-gold">
+            <button
+              onClick={markRead}
+              className="rounded-full px-[var(--space-4)] py-[var(--space-2)] text-[length:var(--text-small)] text-ink-2 transition hover:text-ink"
+              style={{ boxShadow: 'inset 0 0 0 1px var(--color-hairline)' }}
+            >
               Mark complete
             </button>
           )}
           {(alreadyRead || marked) && (
-            <span className="inline-flex items-center gap-2 rounded-full bg-mint/15 px-5 py-2.5 text-sm font-semibold text-mint">
-              <CheckCircle2 size={15} /> Complete
-            </span>
+            <Chip size="md">
+              <CheckCircle2 size={13} /> Complete
+            </Chip>
           )}
-          <Link to={`/quiz/${track}/${lesson.level}`} className="rounded-full bg-gold px-6 py-2.5 text-sm font-bold text-ink transition hover:bg-gold-soft">
-            Take level {lesson.level} quiz
+          <Link
+            to={`/quiz/${track}/${lesson.level}`}
+            className="rounded-full bg-accent px-[var(--space-4)] py-[var(--space-2)] text-[length:var(--text-small)] text-canvas transition hover:bg-accent/90"
+          >
+            Take level <span className="readout">{lesson.level}</span> quiz
           </Link>
         </div>
-      </div>
+      </section>
 
-      <nav className="mt-8 flex items-center justify-between gap-4">
+      <nav className="mt-[var(--space-6)] grid gap-[var(--space-4)] border-t border-hairline pt-[var(--space-4)] sm:grid-cols-2">
         {prev ? (
-          <Link to={`/learn/${track}/${prev.level}`} className="glass flex-1 rounded-2xl p-4 transition hover:border-white/25">
-            <span className="font-mono text-[10px] tracking-widest text-white/35 uppercase">Previous</span>
-            <p className="mt-1 truncate font-semibold">{prev.title}</p>
+          <Link to={`/learn/${track}/${prev.level}`} className="group block min-w-0">
+            <span className="eyebrow">Previous</span>
+            <p className="mt-[var(--space-1)] truncate text-ink transition group-hover:text-ink-2">{prev.title}</p>
           </Link>
         ) : (
-          <span className="flex-1" />
+          <span className="hidden sm:block" />
         )}
-        {next ? (
-          <Link to={`/learn/${track}/${next.level}`} className="glass flex-1 rounded-2xl p-4 text-right transition hover:border-white/25">
-            <span className="font-mono text-[10px] tracking-widest text-white/35 uppercase">Next</span>
-            <p className="mt-1 flex items-center justify-end gap-2 truncate font-semibold">
-              {next.title} <ArrowRight size={15} />
+        {next && (
+          <Link to={`/learn/${track}/${next.level}`} className="group block min-w-0 sm:text-right">
+            <span className="eyebrow">Next</span>
+            <p className="mt-[var(--space-1)] flex items-center gap-[var(--space-1)] truncate text-ink transition group-hover:text-ink-2 sm:justify-end">
+              {next.title} <ArrowRight size={14} className="shrink-0" />
             </p>
           </Link>
-        ) : (
-          <span className="flex-1" />
         )}
       </nav>
     </article>

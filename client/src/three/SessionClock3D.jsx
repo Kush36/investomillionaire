@@ -1,16 +1,18 @@
 import { useRef, useState } from 'react'
 import { useFrame } from '@react-three/fiber'
 import Label from './Label.jsx'
+import { useEntrance } from './Scene.jsx'
+import { token } from './Scene.jsx'
 
 // One NSE equity day, laid out end to end. Each phase behaves differently and
 // most retail damage happens in the first and last of them.
 const PHASES = [
-  { name: 'Pre-open', span: '9:00 to 9:08', minutes: 8, color: '#8b5cf6', note: 'Call auction. Orders collected, no continuous matching' },
-  { name: 'Order matching', span: '9:08 to 9:12', minutes: 4, color: '#a78bfa', note: 'Equilibrium price discovered for the open' },
-  { name: 'Opening hour', span: '9:15 to 10:15', minutes: 60, color: '#ff5d5d', note: 'Widest spreads, highest volatility, most stop hunts' },
-  { name: 'Mid session', span: '10:15 to 14:30', minutes: 255, color: '#33e29b', note: 'Quieter, tighter ranges, lower volume' },
-  { name: 'Closing hour', span: '14:30 to 15:30', minutes: 60, color: '#eaa81e', note: 'Institutions rebalance, intraday positions square off' },
-  { name: 'Closing auction', span: '15:30 to 15:40', minutes: 10, color: '#ffcf5c', note: 'Closing price is a weighted average, not the last trade' },
+  { name: 'Pre-open', span: '9:00 to 9:08', minutes: 8, color: token('ink-3'), note: 'Call auction. Orders collected, no continuous matching' },
+  { name: 'Order matching', span: '9:08 to 9:12', minutes: 4, color: token('ink-3'), note: 'Equilibrium price discovered for the open' },
+  { name: 'Opening hour', span: '9:15 to 10:15', minutes: 60, color: token('loss'), note: 'Widest spreads, highest volatility, most stop hunts' },
+  { name: 'Mid session', span: '10:15 to 14:30', minutes: 255, color: token('ink-2'), note: 'Quieter, tighter ranges, lower volume' },
+  { name: 'Closing hour', span: '14:30 to 15:30', minutes: 60, color: token('accent'), note: 'Institutions rebalance, intraday positions square off' },
+  { name: 'Closing auction', span: '15:30 to 15:40', minutes: 10, color: token('ink-2'), note: 'Closing price is a weighted average, not the last trade' },
 ]
 
 const TOTAL = PHASES.reduce((sum, p) => sum + p.minutes, 0)
@@ -50,12 +52,12 @@ function Segment({ phase, start, index, hovered, setHovered }) {
           roughness={0.3}
         />
       </mesh>
-      <Label position={[0, active ? 2.4 : 1.25 + (index % 3) * 0.42, 0]} size="xs" tone={active ? 'gold' : 'default'}>
+      <Label position={[0, active ? 2.4 : 1.25 + (index % 3) * 0.42, 0]} size="xs" tone={active ? 'accent' : 'default'}>
         {phase.name}
       </Label>
       {active && (
         <>
-          <Label position={[0, 3.0, 0]} size="xs" tone="mint">
+          <Label position={[0, 3.0, 0]} size="xs" tone="accent">
             {phase.span}
           </Label>
           <Label position={[0, -0.7, 0]} size="xs">
@@ -71,17 +73,19 @@ export default function SessionClock3D() {
   const [hovered, setHovered] = useState(null)
   const marker = useRef()
 
-  useFrame((state) => {
+  // One pass along the session as the diagram arrives, so the day reads as time.
+  // It used to loop forever, which makes a teaching beat into a screensaver, and on
+  // a demand canvas it never advanced anyway.
+  const entrance = useEntrance(2800)
+  useFrame(() => {
     if (!marker.current) return
-    // A pass along the session, so the shape of the day reads as time.
-    const t = (state.clock.elapsedTime * 0.09) % 1
-    marker.current.position.x = -6.5 + t * 13
+    marker.current.position.x = -6.5 + entrance() * 13
   })
 
   let cursor = 0
   return (
     <group position={[0, -1, 0]}>
-      <gridHelper args={[16, 16, '#1c2a48', '#121c33']} />
+      <gridHelper args={[16, 16, token('hairline-strong'), token('hairline')]} />
       {PHASES.map((phase) => {
         const start = cursor
         cursor += phase.minutes
@@ -90,10 +94,10 @@ export default function SessionClock3D() {
 
       <mesh ref={marker} position={[-6.5, 0.9, 0]}>
         <boxGeometry args={[0.06, 2.4, 1.7]} />
-        <meshStandardMaterial color="#ffffff" emissive="#ffffff" emissiveIntensity={0.6} transparent opacity={0.55} />
+        <meshStandardMaterial color={token('live')} transparent opacity={0.55} />
       </mesh>
 
-      <Label position={[0, 4.3, 0]} tone="gold">
+      <Label position={[0, 4.3, 0]} tone="accent">
         one NSE equity session
       </Label>
       <Label position={[-7.6, 0.4, 0]} size="xs">

@@ -1,25 +1,12 @@
 import { Router } from 'express'
-import Parser from 'rss-parser'
+import { fetchFeedItems } from '../data/stocknews.js'
 
 export const newsRouter = Router()
 
-// RSS beats every free JSON news API here: no key, no daily quota, and these are
-// the desks that actually cover Indian markets. Moneycontrol is deliberately absent:
-// its RSS endpoints answer 403 to non-browser clients.
-const FEEDS = [
-  { source: 'Economic Times', category: 'Markets', url: 'https://economictimes.indiatimes.com/markets/rssfeeds/1977021501.cms' },
-  { source: 'Economic Times', category: 'Stocks', url: 'https://economictimes.indiatimes.com/markets/stocks/rssfeeds/2146842.cms' },
-  { source: 'Economic Times', category: 'IPO', url: 'https://economictimes.indiatimes.com/markets/ipos/fpos/rssfeeds/14655708.cms' },
-  { source: 'Livemint', category: 'Markets', url: 'https://www.livemint.com/rss/markets' },
-  { source: 'Livemint', category: 'Money', url: 'https://www.livemint.com/rss/money' },
-  { source: 'Business Standard', category: 'Markets', url: 'https://www.business-standard.com/rss/markets-106.rss' },
-  { source: 'BusinessLine', category: 'Markets', url: 'https://www.thehindubusinessline.com/markets/feeder/default.rss' },
-]
-
-const parser = new Parser({
-  timeout: 8000,
-  headers: { 'User-Agent': 'InvestoMillionaire/1.0 (education)' },
-})
+// The feed list, the fetch and the dedup moved to data/stocknews.js, which the
+// company-level news engine also reads. Two copies of a feed list are two feed lists
+// that disagree inside a month. What stays here is what only this page does: the
+// India filter, the mood read and the shape the client renders.
 
 const CACHE_MS = 10 * 60 * 1000
 let cache = { at: 0, items: [] }
@@ -52,54 +39,25 @@ function readMood(title) {
   return 'neutral'
 }
 
-function clean(html = '') {
-  return html
-    .replace(/<[^>]*>/g, ' ')
-    .replace(/&[a-z]+;/gi, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-}
-
-function firstImage(item) {
-  if (item.enclosure?.url) return item.enclosure.url
-  const raw = item['content:encoded'] || item.content || ''
-  return raw.match(/<img[^>]+src=["']([^"']+)["']/i)?.[1] || null
-}
-
 async function pullFeeds() {
-  const results = await Promise.allSettled(
-    FEEDS.map(async (feed) => {
-      const parsed = await parser.parseURL(feed.url)
-      return (parsed.items || []).slice(0, 15).map((item) => {
-        const summary = clean(item.contentSnippet || item.content || '')
-        return {
-          id: item.guid || item.link,
-          title: clean(item.title || 'Untitled'),
-          summary: summary.slice(0, 260),
-          link: item.link,
-          image: firstImage(item),
-          source: feed.source,
-          category: feed.category,
-          mood: readMood(item.title || ''),
-          readMinutes: Math.max(1, Math.round(summary.split(' ').length / 200)),
-          publishedAt: item.isoDate || item.pubDate || new Date().toISOString(),
-        }
-      })
-    })
-  )
-
-  const seen = new Set()
-  return results
-    .filter((r) => r.status === 'fulfilled')
-    .flatMap((r) => r.value)
-    .filter((a) => {
-      const key = a.title.toLowerCase().slice(0, 70)
-      if (!a.link || seen.has(key)) return false
-      if (!isIndianMarketStory(a)) return false
-      seen.add(key)
-      return true
-    })
-    .sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt))
+  const items = await fetchFeedItems()
+  return items
+    .filter((a) => isIndianMarketStory({ title: a.headline, summary: a.summary }))
+    .map((a) => ({
+      id: a.id,
+      title: a.headline,
+      summary: a.summary.slice(0, 260),
+      link: a.link,
+      image: a.image,
+      source: a.publisher,
+      category: a.feedCategory,
+      mood: readMood(a.headline),
+      readMinutes: Math.max(1, Math.round(a.summary.split(' ').length / 200)),
+      // An item the feed dated badly used to be stamped with the time of the fetch,
+      // which is a fabricated freshness on the one field a reader judges news by.
+      publishedAt: a.publishedAt,
+    }))
+    .filter((a) => a.publishedAt)
 }
 
 newsRouter.get('/', async (req, res) => {

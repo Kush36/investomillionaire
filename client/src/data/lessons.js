@@ -818,11 +818,11 @@ export const LESSONS = {
         caption: 'what one Rs 1,00,000 intraday round trip costs',
         unit: 'rupees per round trip',
         bars: [
-          { name: 'Brokerage', value: 40, color: '#eaa81e', note: 'Rs 20 per executed order, two orders' },
-          { name: 'STT', value: 25, color: '#ff5d5d', note: '0.025% on the sell side only, intraday' },
-          { name: 'GST', value: 8.3, color: '#8b5cf6', note: '18% on brokerage plus exchange charges' },
-          { name: 'Exchange', value: 6, color: '#5ee0ff', note: 'Transaction charges on both legs' },
-          { name: 'Stamp duty', value: 3, color: '#33e29b', note: '0.003% on the buy side' },
+          { name: 'Brokerage', value: 40, color: 'accent', note: 'Rs 20 per executed order, two orders' },
+          { name: 'STT', value: 25, color: 'loss', note: '0.025% on the sell side only, intraday' },
+          { name: 'GST', value: 8.3, color: 'ink-2', note: '18% on brokerage plus exchange charges' },
+          { name: 'Exchange', value: 6, color: 'ink-3', note: 'Transaction charges on both legs' },
+          { name: 'Stamp duty', value: 3, color: 'hairline-strong', note: '0.003% on the buy side' },
         ],
       },
       sections: [
@@ -925,14 +925,12 @@ export const TRACK_META = {
   fundamental: {
     label: 'Fundamentals',
     tagline: 'Value the business, not the ticker',
-    accent: '#eaa81e',
     emoji: '🏛️',
     description: 'Understand what a company is worth by reading its business, its books and its moat.',
   },
   technical: {
     label: 'Technicals',
     tagline: 'Read what the chart is telling you',
-    accent: '#33e29b',
     emoji: '📈',
     description: 'Learn price action, structure, indicators and the risk control that keeps you in the game.',
   },

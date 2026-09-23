@@ -3,3 +3,6 @@ dist/
 .env
 .DS_Store
 *.log
+
+# great_cto session state, local only
+.great_cto/

@@ -1,113 +1,150 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Check, X, Timer, Zap, ArrowRight, RotateCcw } from 'lucide-react'
+import { Check, Timer, ArrowRight, RotateCcw } from 'lucide-react'
 import { api } from '../lib/api.js'
 import { useAuth, BADGE_META } from '../lib/store.js'
 import { TRACK_META } from '../data/lessons.js'
+import Chip from '../components/Chip.jsx'
 
+// Two recipes, shared by the play screen, the results screen and the error
+// screen, so exactly one filled button can ever be on screen at once. The ghost
+// draws its edge as an inset ring rather than a border: no border ever sits a
+// pixel away from the ring a panel already draws, and a ring costs no width.
+const BUTTON =
+  'inline-flex items-center gap-[var(--space-1)] rounded-full px-[var(--space-4)] py-[var(--space-2)] text-small transition-colors duration-[var(--dur-tap)] ease-[var(--ease-standard)]'
+const PRIMARY = `${BUTTON} bg-accent text-canvas hover:bg-accent/90 disabled:opacity-50`
+const GHOST = `${BUTTON} text-ink-2 shadow-[inset_0_0_0_1px_var(--color-hairline)] hover:text-ink disabled:opacity-30`
+
+// A 2px ledger rule. Time running out is carried by the ink getting darker, not
+// by the bar turning red: red on this page means a wrong answer and nothing else.
 function Timerbar({ secondsLeft, total }) {
   const ratio = secondsLeft / total
-  const colour = ratio > 0.5 ? '#33e29b' : ratio > 0.2 ? '#eaa81e' : '#ff5d5d'
   return (
-    <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/8">
-      <div className="h-full rounded-full transition-[width] duration-1000 ease-linear" style={{ width: `${ratio * 100}%`, background: colour }} />
+    <div className="h-0.5 w-full overflow-hidden bg-hairline">
+      <div
+        className={`h-full transition-[width] duration-[var(--dur-data)] ease-[var(--ease-data)] ${ratio > 0.2 ? 'bg-ink-3' : 'bg-ink'}`}
+        style={{ width: `${ratio * 100}%` }}
+      />
     </div>
   )
 }
 
 function Results({ result, track, level, onRetry }) {
   const meta = TRACK_META[track]
-  return (
-    <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6">
-      <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="glass rounded-3xl p-8 text-center">
-        <div className="text-6xl">{result.passed ? '🎉' : '😤'}</div>
-        <h1 className="mt-4 text-4xl font-extrabold">
-          {result.score} / {result.total}
-        </h1>
-        <p className="mt-1 text-xl font-bold" style={{ color: result.passed ? '#33e29b' : '#ff5d5d' }}>
-          {result.percent}% · {result.passed ? 'Cleared' : `Need ${result.passPercent}% to clear`}
-        </p>
 
-        <div className="mt-6 flex flex-wrap justify-center gap-3">
-          <span className="inline-flex items-center gap-2 rounded-full bg-gold/15 px-4 py-2 font-mono text-sm text-gold">
-            <Zap size={14} /> +{result.xpEarned} XP
+  return (
+    <div className="mx-auto max-w-3xl px-4 py-[var(--space-6)] sm:px-6">
+      <header>
+        <p className="eyebrow">
+          {meta?.label} · Level {level}
+        </p>
+        {/* The one serif line on this screen, on the thing the screen is about. */}
+        <h1 className="display mt-[var(--space-2)]">{result.passed ? 'Cleared' : 'Not cleared'}</h1>
+
+        {/* The score is typeset, not decorated: tabular mono on a shared
+            baseline, the denominator dropped back to ink-3 so the numerator
+            reads first. The percentage is the only coloured figure here. */}
+        <div className="mt-[var(--space-4)] flex items-baseline gap-[var(--space-3)]">
+          <span className="readout text-title leading-none">
+            {result.score}
+            <span className="text-ink-3">/{result.total}</span>
           </span>
-          {result.nextLevelUnlocked && (
-            <span className="rounded-full bg-mint/15 px-4 py-2 font-mono text-sm text-mint">
-              level {result.nextLevelUnlocked} unlocked
-            </span>
-          )}
+          <span className={`readout text-heading leading-none ${result.passed ? 'text-gain' : 'text-loss'}`}>
+            {result.percent}%
+          </span>
+        </div>
+        {!result.passed && (
+          <p className="mt-[var(--space-2)] text-small text-ink-3">Need {result.passPercent}% to clear</p>
+        )}
+
+        <div className="mt-[var(--space-4)] flex flex-wrap gap-[var(--space-1)]">
+          <Chip>+{result.xpEarned} XP</Chip>
+          {result.nextLevelUnlocked && <Chip>level {result.nextLevelUnlocked} unlocked</Chip>}
         </div>
 
         {result.earnedBadges?.length > 0 && (
-          <div className="mt-6">
-            <p className="font-mono text-[10px] tracking-widest text-white/40 uppercase">New badges</p>
-            <div className="mt-3 flex flex-wrap justify-center gap-3">
+          <div className="mt-[var(--space-5)]">
+            <p className="eyebrow">New badges</p>
+            <div className="mt-[var(--space-2)] flex flex-wrap gap-[var(--space-2)]">
               {result.earnedBadges.map((badge) => (
-                <span key={badge} className="glass rounded-2xl px-4 py-3">
-                  <span className="text-2xl">{BADGE_META[badge]?.emoji ?? '🏅'}</span>
-                  <span className="mt-1 block text-xs font-bold">{BADGE_META[badge]?.label ?? badge}</span>
+                <span key={badge} className="well flex items-center gap-[var(--space-2)] px-[var(--space-3)] py-[var(--space-2)]">
+                  <span className="text-xl leading-none">{BADGE_META[badge]?.emoji ?? '🏅'}</span>
+                  <span className="text-small">{BADGE_META[badge]?.label ?? badge}</span>
                 </span>
               ))}
             </div>
           </div>
         )}
 
-        <div className="mt-8 flex flex-wrap justify-center gap-3">
-          <button onClick={onRetry} className="inline-flex items-center gap-2 rounded-full border border-white/15 px-6 py-3 text-sm font-semibold transition hover:border-gold/50 hover:text-gold">
-            <RotateCcw size={15} /> Retry
-          </button>
-          <Link to="/quiz" className="rounded-full bg-gold px-6 py-3 text-sm font-bold text-ink transition hover:bg-gold-soft">
+        <div className="mt-[var(--space-5)] flex flex-wrap items-center gap-[var(--space-2)]">
+          <Link to="/quiz" className={PRIMARY}>
             All levels
           </Link>
+          <button onClick={onRetry} className={GHOST}>
+            <RotateCcw size={14} /> Retry
+          </button>
           {!result.passed && (
-            <Link to={`/learn/${track}/${level}`} className="rounded-full border border-white/15 px-6 py-3 text-sm font-semibold transition hover:border-gold/50 hover:text-gold">
+            <Link to={`/learn/${track}/${level}`} className={GHOST}>
               Re-read the lesson
             </Link>
           )}
         </div>
-      </motion.div>
+      </header>
 
-      <h2 className="mt-12 text-2xl font-bold">Review</h2>
-      <div className="mt-5 space-y-4">
-        {result.review.map((item) => (
-          <div key={item.position} className={`glass rounded-2xl border-l-2 p-6 ${item.correct ? 'border-l-mint' : 'border-l-flame'}`}>
-            <div className="flex items-start gap-3">
-              <span className={`mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-full ${item.correct ? 'bg-mint/20 text-mint' : 'bg-flame/20 text-flame'}`}>
-                {item.correct ? <Check size={14} /> : <X size={14} />}
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="font-semibold">{item.question}</p>
-                <div className="mt-3 space-y-1.5">
+      <section className="mt-[var(--space-7)]">
+        <h2>Review</h2>
+        <div className="mt-[var(--space-4)] space-y-[var(--space-3)]">
+          {result.review.map((item) => {
+            const tone = item.correct ? 'var(--color-gain)' : 'var(--color-loss)'
+            return (
+              // The rail is an inset shadow listed alongside the panel ring.
+              // An inline box-shadow replaces the utility's rather than adding
+              // to it, so the ring has to ride in the same declaration or the
+              // card silently loses its edge.
+              <article
+                key={item.position}
+                className="panel p-[var(--space-4)]"
+                style={{ boxShadow: `inset 2px 0 0 ${tone}, var(--shadow-ring)` }}
+              >
+                <div className="flex items-baseline gap-[var(--space-2)]">
+                  <span className="readout text-micro text-ink-3">{String(item.position).padStart(2, '0')}</span>
+                  <span className="eyebrow" style={{ color: tone }}>
+                    {item.correct ? 'Correct' : 'Missed'}
+                  </span>
+                </div>
+
+                {/* Three rungs, by size and space: the question, then the
+                    options a step down, then the explanation set apart. */}
+                <p className="mt-[var(--space-2)] max-w-[var(--measure)] text-heading leading-snug">{item.question}</p>
+
+                <ul className="mt-[var(--space-3)] space-y-[var(--space-1)]">
                   {item.options.map((option, i) => {
                     const isCorrect = i === item.correctIndex
                     const isGiven = i === item.givenIndex
                     return (
-                      <p
+                      <li
                         key={option}
-                        className={`rounded-lg px-3 py-1.5 text-sm ${
-                          isCorrect
-                            ? 'bg-mint/12 text-mint'
-                            : isGiven
-                              ? 'bg-flame/12 text-flame line-through'
-                              : 'text-white/45'
+                        className={`flex gap-[var(--space-2)] text-small ${
+                          isCorrect ? 'text-gain' : isGiven ? 'text-loss line-through' : 'text-ink-3'
                         }`}
                       >
-                        {option}
-                      </p>
+                        <span className="readout w-[1.5em] shrink-0">{String.fromCharCode(65 + i)}</span>
+                        <span>{option}</span>
+                      </li>
                     )
                   })}
+                </ul>
+
+                <div className="mt-[var(--space-3)] max-w-[var(--measure)]">
+                  <p className="eyebrow">Why</p>
+                  <p className="mt-[var(--space-1)] text-small leading-relaxed text-ink-2">{item.explanation}</p>
                 </div>
-                <p className="mt-3 text-sm leading-relaxed text-white/60">
-                  <span className="font-bold" style={{ color: meta.accent }}>Why: </span>
-                  {item.explanation}
-                </p>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
+              </article>
+            )
+          })}
+        </div>
+      </section>
     </div>
   )
 }
@@ -182,9 +219,9 @@ export default function QuizPlay() {
 
   if (error) {
     return (
-      <div className="mx-auto max-w-lg px-4 py-24 text-center">
-        <p className="text-flame">{error}</p>
-        <button onClick={() => navigate('/quiz')} className="mt-6 rounded-full bg-gold px-6 py-3 text-sm font-bold text-ink">
+      <div className="mx-auto max-w-lg px-4 py-[var(--space-7)] text-center">
+        <p className="text-loss">{error}</p>
+        <button onClick={() => navigate('/quiz')} className={`${PRIMARY} mt-[var(--space-4)]`}>
           Back to levels
         </button>
       </div>
@@ -192,7 +229,7 @@ export default function QuizPlay() {
   }
 
   if (result) return <Results result={result} track={track} level={level} onRetry={load} />
-  if (!quiz) return <p className="py-24 text-center text-white/40">Loading quiz…</p>
+  if (!quiz) return <p className="py-[var(--space-7)] text-center text-small text-ink-3">Loading quiz…</p>
 
   const question = quiz.questions[index]
   const answered = answers[index] !== -1
@@ -207,31 +244,37 @@ export default function QuizPlay() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6">
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <span className="font-mono text-[11px] tracking-widest uppercase" style={{ color: meta.accent }}>
+    <div className="mx-auto max-w-3xl px-4 py-[var(--space-6)] sm:px-6">
+      <header className="flex items-end justify-between gap-[var(--space-3)]">
+        <div className="min-w-0">
+          <p className="eyebrow">
             {meta.label} · Level {quiz.level}
-          </span>
-          <h1 className="text-2xl font-extrabold">{quiz.meta.title}</h1>
+          </p>
+          <h1 className="mt-[var(--space-1)] text-heading">{quiz.meta.title}</h1>
         </div>
-        <span className="flex items-center gap-2 rounded-full border border-white/10 px-4 py-2 font-mono text-sm">
-          <Timer size={14} className={secondsLeft < 30 ? 'text-flame' : 'text-white/50'} />
-          {String(Math.floor(secondsLeft / 60)).padStart(2, '0')}:{String(secondsLeft % 60).padStart(2, '0')}
-        </span>
-      </div>
+        {/* The clock is a readout: tabular figures, so the page never twitches
+            as the seconds tick down. */}
+        <div className="flex shrink-0 items-center gap-[var(--space-1)] text-ink-2">
+          <Timer size={13} className="text-ink-3" />
+          <span className="readout text-heading leading-none">
+            {String(Math.floor(secondsLeft / 60)).padStart(2, '0')}:{String(secondsLeft % 60).padStart(2, '0')}
+          </span>
+        </div>
+      </header>
 
-      <div className="mt-5">
+      <div className="mt-[var(--space-3)]">
         <Timerbar secondsLeft={secondsLeft} total={quiz.timeLimitSec} />
       </div>
 
-      <div className="mt-4 flex gap-1.5">
+      {/* Three ink values, no colour: where you are, where you have been,
+          where you have not. */}
+      <div className="mt-[var(--space-2)] flex gap-1">
         {quiz.questions.map((_, i) => (
           <button
             key={i}
             onClick={() => setIndex(i)}
-            className={`h-1.5 flex-1 rounded-full transition ${
-              i === index ? 'bg-gold' : answers[i] !== -1 ? 'bg-white/40' : 'bg-white/10'
+            className={`h-1 flex-1 rounded-full transition-colors duration-[var(--dur-tap)] ease-[var(--ease-standard)] ${
+              i === index ? 'bg-ink' : answers[i] !== -1 ? 'bg-ink-3' : 'bg-hairline'
             }`}
             aria-label={`Question ${i + 1}`}
           />
@@ -245,29 +288,34 @@ export default function QuizPlay() {
           animate={{ opacity: 1, x: 0 }}
           exit={{ opacity: 0, x: -24 }}
           transition={{ duration: 0.22 }}
-          className="glass mt-8 rounded-3xl p-7"
+          className="mt-[var(--space-6)]"
         >
-          <span className="font-mono text-xs text-white/35">
+          <p className="eyebrow">
             Question {index + 1} of {quiz.questions.length}
-          </span>
-          <h2 className="mt-3 text-xl leading-snug font-bold sm:text-2xl">{question.question}</h2>
+          </p>
+          {/* The question is the largest thing on the screen and carries no
+              extra weight to say so. Size and the air above it do the work. */}
+          <h2 className="mt-[var(--space-3)] max-w-[var(--measure)] text-title leading-[1.1] font-normal">
+            {question.question}
+          </h2>
 
-          <div className="mt-7 space-y-3">
+          <div className="mt-[var(--space-5)] space-y-[var(--space-2)]">
             {question.options.map((option, i) => {
               const selected = answers[index] === i
               return (
+                // Recessed well, generous target. Selected is a single 2px
+                // mulberry ring and nothing else: no tint, no filled letter
+                // plate, so the one accent on the screen stays one accent.
                 <button
                   key={option}
                   onClick={() => choose(i)}
-                  className={`flex w-full items-center gap-4 rounded-2xl border p-4 text-left transition ${
-                    selected ? 'border-gold bg-gold/12 text-white' : 'border-white/10 text-white/70 hover:border-white/25 hover:bg-white/5'
+                  aria-pressed={selected}
+                  className={`well flex w-full items-start gap-[var(--space-3)] p-[var(--space-3)] text-left transition-colors duration-[var(--dur-tap)] ease-[var(--ease-standard)] ${
+                    selected ? 'text-ink' : 'text-ink-2 hover:text-ink'
                   }`}
+                  style={selected ? { boxShadow: 'inset 0 0 0 2px var(--color-accent)' } : undefined}
                 >
-                  <span
-                    className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg font-mono text-sm font-bold ${
-                      selected ? 'bg-gold text-ink' : 'bg-white/8 text-white/50'
-                    }`}
-                  >
+                  <span className={`readout w-[1.5em] shrink-0 text-small ${selected ? 'text-ink' : 'text-ink-3'}`}>
                     {String.fromCharCode(65 + i)}
                   </span>
                   <span className="leading-snug">{option}</span>
@@ -278,28 +326,17 @@ export default function QuizPlay() {
         </motion.div>
       </AnimatePresence>
 
-      <div className="mt-6 flex items-center justify-between gap-4">
-        <button
-          onClick={() => setIndex((i) => Math.max(0, i - 1))}
-          disabled={index === 0}
-          className="rounded-full border border-white/12 px-5 py-2.5 text-sm font-semibold text-white/70 transition disabled:opacity-30"
-        >
+      <div className="mt-[var(--space-5)] flex items-center justify-between gap-[var(--space-3)]">
+        <button onClick={() => setIndex((i) => Math.max(0, i - 1))} disabled={index === 0} className={GHOST}>
           Back
         </button>
 
         {isLast ? (
-          <button
-            onClick={() => submit(answers)}
-            disabled={submitting}
-            className="inline-flex items-center gap-2 rounded-full bg-gold px-7 py-3 text-sm font-bold text-ink transition hover:bg-gold-soft disabled:opacity-50"
-          >
+          <button onClick={() => submit(answers)} disabled={submitting} className={PRIMARY}>
             {submitting ? 'Scoring…' : 'Submit quiz'} <Check size={16} />
           </button>
         ) : (
-          <button
-            onClick={() => setIndex((i) => i + 1)}
-            className="inline-flex items-center gap-2 rounded-full bg-gold px-7 py-3 text-sm font-bold text-ink transition hover:bg-gold-soft"
-          >
+          <button onClick={() => setIndex((i) => i + 1)} className={PRIMARY}>
             {answered ? 'Next' : 'Skip'} <ArrowRight size={16} />
           </button>
         )}

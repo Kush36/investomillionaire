@@ -33,14 +33,12 @@ function opaqueOk(res, extra = {}) {
   return res.json({ ok: true, mailerReady, ...extra })
 }
 
-// mailerReady only says credentials exist. `delivered` says the mail actually left.
+// mailerReady only says a key is configured. `delivered` says the mail actually left.
 function otpResponse(res, result, extra = {}) {
   return res.json({
     ok: true,
     mailerReady,
     delivered: Boolean(result?.delivered),
-    // Only present while running on the Ethereal fallback.
-    previewUrl: result?.previewUrl ?? null,
     ...extra,
   })
 }
@@ -56,7 +54,7 @@ async function issueOtp({ email, purpose, payload }) {
   await Otp.deleteMany({ email, purpose, consumedAt: null })
 
   const code = generateOtp()
-  await Otp.create({
+  const record = await Otp.create({
     email,
     purpose,
     codeHash: hashOtp(code),
@@ -64,8 +62,22 @@ async function issueOtp({ email, purpose, payload }) {
     payload,
   })
   const result = await sendOtp(email, code, purpose)
-  return { throttled: false, delivered: result.delivered, previewUrl: result.previewUrl }
+
+  // A code the user never received is worse than no code at all: the row would
+  // hold the sixty second resend gap and block every retry. Drop it and report
+  // the failure. Running with no mail key is the exception, because the code is
+  // printed to the log and the flow is still usable on a laptop.
+  if (!result.delivered && result.reason !== 'not-configured') {
+    await record.deleteOne()
+    return { failed: true }
+  }
+  return { throttled: false, delivered: result.delivered }
 }
+
+const SEND_FAILED = 'We could not send the code just now. Try again in a minute.'
+// One answer for every way a reset can fail. Saying which way it failed says whether
+// the address is registered.
+const RESET_REJECTED = 'That code is not valid or has expired. Ask for a new one.'
 
 async function consumeOtp(email, purpose, code) {
   const record = await Otp.findOne({ email, purpose, consumedAt: null }).sort({ createdAt: -1 })
@@ -123,6 +135,7 @@ authRouter.post('/signup/start', async (req, res) => {
   if (result.throttled) {
     return res.status(429).json({ error: `A code was just sent. Ask again in ${result.wait} seconds.` })
   }
+  if (result.failed) return res.status(502).json({ error: SEND_FAILED })
   return otpResponse(res, result, { email })
 })
 
@@ -163,6 +176,7 @@ authRouter.post('/signup/resend', async (req, res) => {
 
   const result = await issueOtp({ email: parsed.data.email, purpose: 'signup', payload: pending.payload })
   if (result.throttled) return res.status(429).json({ error: `Wait ${result.wait} seconds before asking again.` })
+  if (result.failed) return res.status(502).json({ error: SEND_FAILED })
   return otpResponse(res, result)
 })
 
@@ -181,20 +195,34 @@ authRouter.post('/login', async (req, res) => {
 
 /* -------------------------------------------------------- forgot password ---- */
 
+// Anyone can post any address here, so every answer has to look the same. Four
+// things used to give the game away: `delivered`, a 429 when a code had just gone
+// out, a 502 when the provider was down, and the several hundred milliseconds an
+// awaited send added for registered addresses only. The last one is the loudest,
+// which is why the reply goes out before any mail is attempted.
 authRouter.post('/forgot', async (req, res) => {
   const parsed = z.object({ email: emailField }).safeParse(req.body)
   if (!parsed.success) return res.status(400).json({ error: 'Enter a valid email.' })
+  const email = parsed.data.email
 
-  const user = await User.findOne({ email: parsed.data.email })
-  // Answer identically whether or not the account exists.
-  let result = null
-  if (user) {
-    result = await issueOtp({ email: parsed.data.email, purpose: 'reset' })
+  // Reading the user is the same amount of work either way, so it can happen first
+  // and a database outage can still surface as a 500.
+  const user = await User.findOne({ email })
+  opaqueOk(res)
+
+  if (!user) return
+  // Past this line nothing reaches the caller. Failures are the operator's problem,
+  // and telling the caller about them is the leak.
+  try {
+    const result = await issueOtp({ email, purpose: 'reset' })
     if (result.throttled) {
-      return res.status(429).json({ error: `A code was just sent. Ask again in ${result.wait} seconds.` })
+      console.warn(`[auth] reset code for ${email} held back, ${result.wait}s left on the resend gap`)
+    } else if (result.failed) {
+      console.error(`[auth] reset code for ${email} could not be sent`)
     }
+  } catch (err) {
+    console.error(`[auth] reset code for ${email} threw after the reply went out: ${err.message}`)
   }
-  return otpResponse(res, result)
 })
 
 authRouter.post('/reset', async (req, res) => {
@@ -205,11 +233,18 @@ authRouter.post('/reset', async (req, res) => {
     return res.status(400).json({ error: 'Enter the six digit code and a password of at least 8 characters.' })
   }
 
+  // consumeOtp distinguishes a missing code from a wrong one, and forwarding that
+  // distinction finishes the job /forgot refuses to do: only a registered address
+  // has a reset code to be wrong about, so "that code is wrong, 4 tries left" is a
+  // yes and "that code has expired" is a no. One string for every failure, and the
+  // real reason goes to the log. /signup/verify keeps the tries-left countdown,
+  // because signup already answers the existence question outright with a 409.
   const { error } = await consumeOtp(parsed.data.email, 'reset', parsed.data.code)
-  if (error) return res.status(400).json({ error })
-
-  const user = await User.findOne({ email: parsed.data.email })
-  if (!user) return res.status(400).json({ error: 'That code is no longer valid.' })
+  const user = error ? null : await User.findOne({ email: parsed.data.email })
+  if (error || !user) {
+    console.warn(`[auth] reset rejected for ${parsed.data.email}: ${error ?? 'no such account'}`)
+    return res.status(400).json({ error: RESET_REJECTED })
+  }
 
   user.passwordHash = await bcrypt.hash(parsed.data.password, 12)
   user.emailVerified = true

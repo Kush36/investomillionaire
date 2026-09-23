@@ -1,21 +1,32 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { motion } from 'framer-motion'
-import {
-  ArrowLeft, CalendarDays, ExternalLink, ShieldAlert, Check, Square, Info, Users, TrendingUp,
-} from 'lucide-react'
+import { ArrowLeft, ExternalLink, Check, Square } from 'lucide-react'
 import LessonScene from '../three/LessonScene.jsx'
 import { formatDate } from './Ipo.jsx'
 import { VerdictBadge, verdictTone } from '../components/Verdict.jsx'
+import { Chip } from '../components/Chip.jsx'
+import { Notice } from '../components/Notice.jsx'
 import { API_BASE } from '../lib/api.js'
 
-const PHASE_STYLE = {
-  open: { color: '#33e29b', label: 'OPEN NOW' },
-  upcoming: { color: '#eaa81e', label: 'UPCOMING' },
-  closed: { color: '#8b5cf6', label: 'CLOSED' },
+// Phase is the one mulberry mark in the masthead: it is the only line here that
+// changes what you can do today.
+const PHASE = {
+  open: { tone: 'accent', label: 'OPEN NOW' },
+  upcoming: { tone: 'neutral', label: 'UPCOMING' },
+  closed: { tone: 'neutral', label: 'CLOSED' },
 }
 
-const CATEGORY_COLORS = ['#eaa81e', '#33e29b', '#8b5cf6', '#5ee0ff', '#ff8b3d']
+// The 3D towers take colours through THREE.Color, which cannot read a CSS custom
+// property, so this one ramp stays literal. It is a single indigo stepped down,
+// not five competing hues.
+// One hue, stepped by weight. A category chart wants rank, not five brand colours.
+const CATEGORY_COLORS = [
+  'var(--color-accent)',
+  'var(--color-ink)',
+  'var(--color-ink-2)',
+  'var(--color-ink-3)',
+  'var(--color-hairline-strong)',
+]
 
 // Shorten the exchange's very formal category names for the 3D labels.
 function shortCategory(name) {
@@ -28,6 +39,12 @@ function shortCategory(name) {
 }
 
 // Every line here describes what a number is. None of them says what to do about it.
+//
+// The tone field these notes used to carry was never rendered: it was computed on
+// every note and thrown away at the call site. It is gone rather than promoted,
+// because a colour-coded severity on a section whose whole argument is "none of
+// these is a reason to apply or to stay away" would contradict the copy, and the
+// titles already say which way each reading points.
 function observations(issue, categories) {
   const notes = []
   const find = (re) => categories.find((c) => re.test(c.category))
@@ -37,7 +54,6 @@ function observations(issue, categories) {
 
   if (issue.board === 'SME') {
     notes.push({
-      tone: 'amber',
       title: 'This is an SME issue',
       body: 'SME lots run into tens of thousands of rupees, trading volumes after listing are thin, and disclosure requirements are lighter than the mainboard.',
     })
@@ -45,7 +61,6 @@ function observations(issue, categories) {
 
   if (qib) {
     notes.push({
-      tone: qib.times >= 1 ? 'green' : 'amber',
       title: `QIB portion at ${qib.times.toFixed(2)}x`,
       body:
         qib.times >= 1
@@ -56,7 +71,6 @@ function observations(issue, categories) {
 
   if (retail && qib && retail.times > qib.times * 2 && qib.times < 3) {
     notes.push({
-      tone: 'amber',
       title: 'Retail is running well ahead of institutions',
       body: 'Retail demand far outpacing the QIB book is a pattern worth noticing. It is a description of who is bidding, nothing more.',
     })
@@ -64,7 +78,6 @@ function observations(issue, categories) {
 
   if (nii && nii.times >= 10) {
     notes.push({
-      tone: 'amber',
       title: `NII portion at ${nii.times.toFixed(0)}x`,
       body: 'Heavy non-institutional bidding is often funded by short-term borrowing, which tends to be sold quickly once listing is done.',
     })
@@ -72,7 +85,6 @@ function observations(issue, categories) {
 
   if (issue.issueSizeCrore && issue.issueSizeCrore < 300) {
     notes.push({
-      tone: 'amber',
       title: `Small issue, roughly Rs ${issue.issueSizeCrore} crore`,
       body: 'Smaller issues have less float, so prices move harder in both directions after listing.',
     })
@@ -80,7 +92,6 @@ function observations(issue, categories) {
 
   if (issue.phase === 'open' && issue.daysLeft != null && issue.daysLeft <= 0) {
     notes.push({
-      tone: 'green',
       title: 'Final day of bidding',
       body: 'Subscription figures move most in the last few hours as institutional bids land.',
     })
@@ -172,18 +183,21 @@ export default function IpoDetail() {
 
   if (error) {
     return (
-      <div className="mx-auto max-w-lg px-4 py-24 text-center">
-        <p className="text-flame">{error}</p>
-        <Link to="/ipo" className="mt-6 inline-block rounded-full bg-gold px-6 py-3 text-sm font-bold text-ink">
+      <div className="mx-auto max-w-[var(--measure)] px-[var(--page-inset)] py-[var(--space-7)] text-center">
+        <p className="text-loss">{error}</p>
+        <Link
+          to="/ipo"
+          className="mt-[var(--space-4)] inline-block rounded-full border border-hairline-strong px-[var(--space-4)] py-[var(--space-2)] text-sm text-accent transition hover:border-accent"
+        >
           Back to the tracker
         </Link>
       </div>
     )
   }
-  if (!data) return <p className="py-24 text-center text-white/40">Loading issue…</p>
+  if (!data) return <p className="py-[var(--space-7)] text-center text-ink-3">Loading issue…</p>
 
   const { issue, categories, coverage, verdict, gmpSource } = data
-  const style = PHASE_STYLE[issue.phase]
+  const phase = PHASE[issue.phase]
   const notes = observations(issue, categories)
   const done = CHECKLIST.filter((item) => ticked[item.id]).length
 
@@ -195,28 +209,24 @@ export default function IpoDetail() {
   }))
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-12 sm:px-6">
-      <Link to="/ipo" className="inline-flex items-center gap-2 font-mono text-xs tracking-widest text-white/40 uppercase hover:text-gold">
+    <div className="mx-auto max-w-[var(--page-max)] px-[var(--page-inset)] pt-[var(--space-5)] pb-[var(--space-7)]">
+      <Link to="/ipo" className="eyebrow inline-flex items-center gap-2 transition hover:text-ink">
         <ArrowLeft size={14} /> IPO tracker
       </Link>
 
-      <header className="mt-6">
-        <div className="flex flex-wrap items-center gap-3">
-          <span
-            className="rounded-full px-3 py-1 font-mono text-[11px] font-bold tracking-widest"
-            style={{ background: `${style.color}1f`, color: style.color }}
-          >
-            {style.label}
-          </span>
-          <span className="rounded-full bg-white/5 px-3 py-1 font-mono text-[11px] tracking-widest text-white/45">
-            {issue.board}
-          </span>
-          <span className="font-mono text-xs text-white/35">{issue.symbol}</span>
+      <header className="mt-[var(--space-5)]">
+        <div className="flex flex-wrap items-center gap-[var(--space-2)]">
+          {phase && <Chip tone={phase.tone}>{phase.label}</Chip>}
+          <Chip>{issue.board}</Chip>
+          <span className="readout text-xs text-ink-3">{issue.symbol}</span>
         </div>
-        <h1 className="mt-4 text-3xl leading-tight font-extrabold sm:text-4xl">{issue.company}</h1>
+        {/* The one serif line on this page: the company the page is about. */}
+        <h1 className="display mt-[var(--space-3)]">{issue.company}</h1>
       </header>
 
-      <dl className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
+      {/* One well, one grid, one baseline. Eight separate wells made eight boxes
+          out of what is a single table of terms. */}
+      <dl className="well mt-[var(--space-6)] grid grid-cols-2 sm:grid-cols-4">
         {[
           ['price band', issue.band.label],
           ['issue size', issue.issueSizeCrore ? `~Rs ${issue.issueSizeCrore} cr` : 'TBA'],
@@ -227,78 +237,81 @@ export default function IpoDetail() {
           ['allotment', formatDate(issue.allotmentDate)],
           ['listing', formatDate(issue.listingDate)],
         ].map(([label, value]) => (
-          <div key={label} className="glass rounded-2xl p-4">
-            <dt className="font-mono text-[10px] tracking-widest text-white/35 uppercase">{label}</dt>
-            <dd className="mt-1 font-bold">{value}</dd>
+          <div key={label} className="p-[var(--space-3)]">
+            <dt className="eyebrow">{label}</dt>
+            <dd className="readout mt-[var(--space-1)] text-sm text-ink">{value}</dd>
           </div>
         ))}
       </dl>
 
       {issue.phase === 'open' && issue.daysLeft != null && (
-        <p className="mt-4 flex items-center gap-2 font-mono text-xs text-mint">
-          <CalendarDays size={14} />
+        <p className="mt-[var(--space-2)] text-sm text-ink-2">
           {issue.daysLeft <= 0 ? 'Bidding closes today' : `${issue.daysLeft} day${issue.daysLeft === 1 ? '' : 's'} of bidding left`}
         </p>
       )}
 
       {verdict && (
-        <section className="mt-10">
-          <div className={`glass rounded-3xl border p-7 ${verdictTone(verdict.tone).border}`}>
-            <div className="flex flex-wrap items-center justify-between gap-4">
+        <section className="mt-[var(--space-7)]">
+          {/* No border on the panel: panel already draws its edge as a ring, and the
+              rating ladder stays legible in the score colour and the bar. */}
+          <div className="panel p-[var(--space-4)]">
+            <div className="flex flex-wrap items-end justify-between gap-[var(--space-3)]">
               <div>
-                <span className="font-mono text-[10px] tracking-widest text-white/40 uppercase">
-                  mechanical score · {verdict.confidence} confidence
-                </span>
-                <div className="mt-2 flex items-center gap-3">
+                <p className="eyebrow">mechanical score · {verdict.confidence} confidence</p>
+                <div className="mt-[var(--space-2)]">
                   <VerdictBadge verdict={verdict} size="lg" />
-                  <span className="text-white/60">{verdict.gist}</span>
                 </div>
               </div>
               <div className="text-right">
-                <div className={`font-mono text-3xl font-extrabold ${verdictTone(verdict.tone).text}`}>
+                <div className={`readout text-3xl leading-none ${verdictTone(verdict.tone).text}`}>
                   {verdict.score > 0 ? '+' : ''}
                   {verdict.score}
                 </div>
-                <div className="font-mono text-[10px] tracking-widest text-white/35 uppercase">
-                  of {verdict.best} possible
-                </div>
+                <p className="eyebrow mt-[var(--space-1)]">of {verdict.best} possible</p>
               </div>
             </div>
 
-            <div className="mt-6 h-2 overflow-hidden rounded-full bg-white/8">
+            <p className="mt-[var(--space-3)] max-w-[var(--measure)] text-ink-2">{verdict.gist}</p>
+
+            <div className="mt-[var(--space-3)] h-1 overflow-hidden rounded-full bg-surface-2">
               <div
-                className="h-full rounded-full transition-[width] duration-700"
+                className="h-full rounded-full transition-[width] duration-[var(--dur-data)] ease-[var(--ease-data)]"
                 style={{ width: `${Math.round(verdict.normalised * 100)}%`, background: verdictTone(verdict.tone).bar }}
               />
             </div>
 
             {verdict.capped && (
-              <p className="mt-4 rounded-xl bg-gold/10 px-4 py-3 text-sm text-gold">
+              <p className="well mt-[var(--space-4)] max-w-[var(--measure)] p-[var(--space-3)] text-sm leading-relaxed text-ink-2">
                 Held back from the top band on purpose. Bidding has not opened, so there is no order book to read and
                 the score rests almost entirely on grey market chatter.
               </p>
             )}
 
-            <div className="mt-6 space-y-2">
+            {/* A scorecard is a table. One well, hairline rules, points in a fixed
+                column so every sign lines up under the one above it. */}
+            <div className="well mt-[var(--space-4)]">
               {verdict.rules.map((rule) => (
-                <div key={rule.label} className="flex items-start gap-4 rounded-xl bg-white/[0.03] px-4 py-3">
+                <div
+                  key={rule.label}
+                  className="flex items-baseline gap-[var(--space-3)] border-t border-hairline p-[var(--space-3)] first:border-t-0"
+                >
                   <span
-                    className={`w-8 shrink-0 text-center font-mono text-sm font-bold ${
-                      rule.points > 0 ? 'text-mint' : rule.points < 0 ? 'text-flame' : 'text-white/30'
+                    className={`readout w-9 shrink-0 text-right text-sm ${
+                      rule.points > 0 ? 'text-ink' : rule.points < 0 ? 'text-ink-2' : 'text-ink-3'
                     }`}
                   >
                     {rule.points > 0 ? '+' : ''}
                     {rule.points}
                   </span>
                   <span className="min-w-0">
-                    <span className="block text-sm font-semibold">{rule.label}</span>
-                    <span className="mt-0.5 block text-sm text-white/50">{rule.detail}</span>
+                    <span className="block text-sm text-ink">{rule.label}</span>
+                    <span className="mt-[var(--space-1)] block text-sm leading-relaxed text-ink-2">{rule.detail}</span>
                   </span>
                 </div>
               ))}
             </div>
 
-            <p className="mt-6 text-sm leading-relaxed text-white/45">
+            <p className="mt-[var(--space-4)] max-w-[var(--measure)] text-sm leading-relaxed text-ink-2">
               Every rule above is fixed and applied identically to every issue, so you can see precisely what produced
               the label and throw out any part you disagree with. It reads exchange and grey market numbers. It has read
               nothing about the business, the management or the industry, and it is not investment advice from a SEBI
@@ -309,29 +322,33 @@ export default function IpoDetail() {
       )}
 
       {bars.length > 0 && (
-        <section className="mt-12">
-          <div className="flex items-center gap-2">
-            <Users size={18} className="text-gold" />
-            <h2 className="text-2xl font-bold">Who is actually bidding</h2>
-          </div>
-          <p className="mt-2 text-white/55">
+        <section className="mt-[var(--space-7)]">
+          <h2>Who is actually bidding</h2>
+          <p className="prose mt-[var(--space-2)]">
             Live from NSE. Hover a tower for the raw share counts. Each category has its own reserved portion, so they
             subscribe at very different rates.
           </p>
-          <div className="mt-6">
+          <div className="mt-[var(--space-4)]">
             <LessonScene
               scene={{ type: 'towers', bars, caption: 'times subscribed, by investor category', unit: 'x subscribed' }}
               height={420}
             />
           </div>
 
-          <div className="mt-5 grid gap-3 sm:grid-cols-2">
+          <div className="well mt-[var(--space-3)]">
             {categories.map((cat, i) => (
-              <div key={cat.category} className="glass flex items-center justify-between gap-3 rounded-xl p-4">
-                <span className="min-w-0 truncate text-sm text-white/70">{cat.category}</span>
-                <span className="font-mono text-sm font-bold" style={{ color: CATEGORY_COLORS[i % CATEGORY_COLORS.length] }}>
-                  {cat.times.toFixed(2)}x
+              <div
+                key={cat.category}
+                className="flex items-center justify-between gap-[var(--space-3)] border-t border-hairline px-[var(--space-3)] py-[var(--space-2)] first:border-t-0"
+              >
+                <span className="flex min-w-0 items-center gap-[var(--space-2)] text-sm text-ink-2">
+                  <span
+                    className="h-1.5 w-1.5 shrink-0 rounded-full"
+                    style={{ background: CATEGORY_COLORS[i % CATEGORY_COLORS.length] }}
+                  />
+                  <span className="truncate">{cat.category}</span>
                 </span>
+                <span className="readout shrink-0 text-sm text-ink">{cat.times.toFixed(2)}x</span>
               </div>
             ))}
           </div>
@@ -339,23 +356,18 @@ export default function IpoDetail() {
       )}
 
       {notes.length > 0 && (
-        <section className="mt-12">
-          <div className="flex items-center gap-2">
-            <TrendingUp size={18} className="text-gold" />
-            <h2 className="text-2xl font-bold">What the numbers say</h2>
-          </div>
-          <p className="mt-2 text-white/55">
+        <section className="mt-[var(--space-7)]">
+          <h2>What the numbers say</h2>
+          <p className="prose mt-[var(--space-2)]">
             Plain readings of the exchange data. None of these is a reason to apply or to stay away.
           </p>
-          <div className="mt-5 space-y-3">
+          <div className="well mt-[var(--space-4)]">
             {notes.map((note) => (
-              <div
-                key={note.title}
-                className="glass rounded-2xl border-l-2 p-5"
-                style={{ borderLeftColor: note.tone === 'green' ? '#33e29b' : '#eaa81e' }}
-              >
-                <h3 className="font-bold">{note.title}</h3>
-                <p className="mt-1.5 text-sm leading-relaxed text-white/60">{note.body}</p>
+              <div key={note.title} className="border-t border-hairline p-[var(--space-3)] first:border-t-0">
+                <h3>{note.title}</h3>
+                <p className="mt-[var(--space-1)] max-w-[var(--measure)] text-sm leading-relaxed text-ink-2">
+                  {note.body}
+                </p>
               </div>
             ))}
           </div>
@@ -363,81 +375,76 @@ export default function IpoDetail() {
       )}
 
       {/* GMP */}
-      <section className="mt-12">
-        <div className="flex items-center gap-2">
-          <ShieldAlert size={18} className="text-flame" />
-          <h2 className="text-2xl font-bold">Grey market premium</h2>
-        </div>
+      <section className="mt-[var(--space-7)]">
+        <h2>Grey market premium</h2>
 
         {issue.gmp && issue.gmp.percent != null ? (
-          <div className="glass mt-5 rounded-2xl border border-flame/25 p-6">
-            <div className="grid gap-6 sm:grid-cols-3">
+          <>
+            <dl className="well mt-[var(--space-4)] grid gap-[var(--space-3)] p-[var(--space-3)] sm:grid-cols-3">
               <div>
-                <p className="font-mono text-[10px] tracking-widest text-white/35 uppercase">premium</p>
-                <p
-                  className="mt-1 font-mono text-3xl font-extrabold"
-                  style={{ color: issue.gmp.percent >= 0 ? '#33e29b' : '#ff5d5d' }}
+                <dt className="eyebrow">premium</dt>
+                <dd
+                  className={`readout mt-[var(--space-1)] text-2xl leading-none ${
+                    issue.gmp.percent >= 0 ? 'text-gain' : 'text-loss'
+                  }`}
                 >
                   Rs {issue.gmp.premium}
-                </p>
-                <p className="font-mono text-sm text-white/45">
+                </dd>
+                <dd className="readout mt-[var(--space-1)] text-sm text-ink-2">
                   {issue.gmp.percent >= 0 ? '+' : ''}
                   {issue.gmp.percent}% over cap
-                </p>
+                </dd>
               </div>
               <div>
-                <p className="font-mono text-[10px] tracking-widest text-white/35 uppercase">implied listing price</p>
-                <p className="mt-1 font-mono text-3xl font-extrabold text-gold">
+                <dt className="eyebrow">implied listing price</dt>
+                <dd className="readout mt-[var(--space-1)] text-2xl leading-none text-ink">
                   Rs {issue.gmp.estimatedListing ?? '--'}
-                </p>
-                <p className="font-mono text-sm text-white/45">cap Rs {issue.gmp.capPrice ?? issue.band.max} + premium</p>
+                </dd>
+                <dd className="readout mt-[var(--space-1)] text-sm text-ink-2">
+                  cap Rs {issue.gmp.capPrice ?? issue.band.max} + premium
+                </dd>
               </div>
               <div>
-                <p className="font-mono text-[10px] tracking-widest text-white/35 uppercase">source quoted at</p>
-                <p className="mt-1 font-mono text-sm text-white/70">{issue.gmp.updatedLabel ?? 'unknown'}</p>
-                <a
-                  href={issue.gmp.sourceUrl}
-                  target="_blank"
-                  rel="noreferrer noopener"
-                  className="mt-1 inline-flex items-center gap-1 font-mono text-xs text-gold hover:underline"
-                >
-                  {gmpSource?.name ?? 'source'} <ExternalLink size={11} />
-                </a>
+                <dt className="eyebrow">source quoted at</dt>
+                <dd className="readout mt-[var(--space-1)] text-sm text-ink-2">{issue.gmp.updatedLabel ?? 'unknown'}</dd>
+                <dd className="mt-[var(--space-1)]">
+                  <a
+                    href={issue.gmp.sourceUrl}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                    className="readout inline-flex items-center gap-1 text-xs text-ink underline decoration-1 underline-offset-4"
+                  >
+                    {gmpSource?.name ?? 'source'} <ExternalLink size={11} />
+                  </a>
+                </dd>
               </div>
-            </div>
+            </dl>
 
-            <div className="mt-6 border-t border-white/10 pt-5">
-              <p className="text-sm leading-relaxed text-white/60">
-                Read that number with both eyes open. GMP is quoted in an informal, off-exchange market with no
-                regulator, no settlement and no published volume. SEBI has repeatedly cautioned investors about relying
-                on grey market activity.
-              </p>
-              <ul className="mt-4 space-y-2 text-sm text-white/55">
-                <li className="flex gap-2">
-                  <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-flame" />
+            <Notice className="mt-[var(--space-3)]">
+              Read that number with both eyes open. GMP is quoted in an informal, off-exchange market with no
+              regulator, no settlement and no published volume. SEBI has repeatedly cautioned investors about relying
+              on grey market activity.
+              <ul className="mt-[var(--space-2)] list-disc space-y-[var(--space-1)] pl-[var(--space-3)]">
+                <li>
                   A handful of unofficial dealers quoting each other. Different sites publish different numbers for the
                   same issue on the same day.
                 </li>
-                <li className="flex gap-2">
-                  <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-flame" />
-                  It says nothing about the business, its profits or whether the issue price is reasonable.
-                </li>
-                <li className="flex gap-2">
-                  <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-flame" />
+                <li>It says nothing about the business, its profits or whether the issue price is reasonable.</li>
+                <li>
                   A premium that collapses in the days before listing is common, and the figure is often quietly revised
                   after the fact.
                 </li>
               </ul>
               {issue.gmp.matchConfidence != null && issue.gmp.matchConfidence < 1 && (
-                <p className="mt-4 rounded-xl bg-gold/10 px-4 py-3 text-sm text-gold">
+                <p className="mt-[var(--space-2)] border-t border-hairline pt-[var(--space-2)]">
                   This figure was matched to the issue by company name at {Math.round(issue.gmp.matchConfidence * 100)}%
                   confidence. Check the source link before you lean on it.
                 </p>
               )}
-            </div>
-          </div>
+            </Notice>
+          </>
         ) : (
-          <p className="glass mt-5 rounded-2xl p-6 text-sm text-white/45">
+          <p className="well mt-[var(--space-4)] max-w-[var(--measure)] p-[var(--space-4)] text-sm leading-relaxed text-ink-2">
             No grey market figure is being quoted for this issue yet. GMP usually appears once the price band is
             announced.
           </p>
@@ -445,43 +452,35 @@ export default function IpoDetail() {
       </section>
 
       {/* Coverage */}
-      <section className="mt-12">
-        <h2 className="text-2xl font-bold">What the desks are writing</h2>
-        <p className="mt-2 text-white/55">
+      <section className="mt-[var(--space-7)]">
+        <h2>What the desks are writing</h2>
+        <p className="prose mt-[var(--space-2)]">
           Published stories matched to this issue. Broker views belong to the brokers quoted in them, not to us.
         </p>
         {coverage.length === 0 ? (
-          <p className="glass mt-5 rounded-2xl p-6 text-sm text-white/45">
+          <p className="well mt-[var(--space-4)] max-w-[var(--measure)] p-[var(--space-4)] text-sm leading-relaxed text-ink-2">
             Nothing published yet that we can match to this company. Coverage usually appears once the price band is
             announced.
           </p>
         ) : (
-          <div className="mt-5 space-y-3">
+          <div className="mt-[var(--space-4)] space-y-[var(--space-2)]">
             {coverage.map((item) => (
               <a
                 key={item.link}
                 href={item.link}
                 target="_blank"
                 rel="noreferrer noopener"
-                className="glass group flex items-start gap-4 rounded-2xl p-5 transition hover:border-white/25"
+                className="panel flex items-start gap-[var(--space-3)] p-[var(--space-4)] transition hover:bg-surface-2"
               >
                 <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-mono text-[10px] tracking-widest text-white/40 uppercase">{item.source}</span>
-                    {item.mentionsGmp && (
-                      <span className="rounded-full bg-flame/15 px-2 py-0.5 font-mono text-[9px] font-bold tracking-widest text-flame">
-                        MENTIONS GMP
-                      </span>
-                    )}
-                    {item.isReview && (
-                      <span className="rounded-full bg-gold/15 px-2 py-0.5 font-mono text-[9px] font-bold tracking-widest text-gold">
-                        BROKER VIEW
-                      </span>
-                    )}
+                  <div className="flex flex-wrap items-center gap-[var(--space-2)]">
+                    <span className="eyebrow">{item.source}</span>
+                    {item.mentionsGmp && <Chip tone="loss">MENTIONS GMP</Chip>}
+                    {item.isReview && <Chip>BROKER VIEW</Chip>}
                   </div>
-                  <p className="mt-2 font-semibold transition group-hover:text-gold">{item.title}</p>
+                  <p className="mt-[var(--space-2)] max-w-[var(--measure)]">{item.title}</p>
                 </div>
-                <ExternalLink size={15} className="mt-1 shrink-0 text-white/30" />
+                <ExternalLink size={15} className="mt-1 shrink-0 text-ink-3" />
               </a>
             ))}
           </div>
@@ -489,67 +488,69 @@ export default function IpoDetail() {
       </section>
 
       {/* Checklist */}
-      <section className="mt-12">
-        <h2 className="text-2xl font-bold">Six things to check before you decide</h2>
-        <p className="mt-2 text-white/55">
+      <section className="mt-[var(--space-7)]">
+        <h2>Six things to check before you decide</h2>
+        <p className="prose mt-[var(--space-2)]">
           All six are answerable from the red herring prospectus, free on the SEBI and exchange websites. Tick them off
           as you go. Your answers stay in this browser.
         </p>
 
-        <div className="mt-6 space-y-3">
+        {/* Done recedes rather than lighting up: the tick goes to ink and the
+            question steps back to ink-3. Six mulberry rows were six answers to a
+            question nobody asked, which is what a verdict looks like. */}
+        <div className="well mt-[var(--space-4)]">
           {CHECKLIST.map((item) => {
             const isDone = Boolean(ticked[item.id])
             return (
               <button
                 key={item.id}
                 onClick={() => toggle(item.id)}
-                className={`flex w-full items-start gap-4 rounded-2xl border p-5 text-left transition ${
-                  isDone ? 'border-mint/40 bg-mint/5' : 'border-white/10 hover:border-white/25 hover:bg-white/5'
-                }`}
+                aria-pressed={isDone}
+                className="flex w-full items-start gap-[var(--space-3)] border-t border-hairline p-[var(--space-3)] text-left transition first:border-t-0 hover:bg-surface"
               >
-                <span className={`mt-0.5 shrink-0 ${isDone ? 'text-mint' : 'text-white/25'}`}>
-                  {isDone ? <Check size={18} /> : <Square size={18} />}
+                <span className={`mt-0.5 shrink-0 ${isDone ? 'text-ink' : 'text-ink-3'}`}>
+                  {isDone ? <Check size={17} /> : <Square size={17} />}
                 </span>
                 <span className="min-w-0">
-                  <span className={`block font-semibold ${isDone ? 'text-mint' : ''}`}>{item.question}</span>
-                  <span className="mt-1.5 block text-sm leading-relaxed text-white/55">{item.why}</span>
+                  <span className={`block ${isDone ? 'text-ink-3' : 'text-ink'}`}>{item.question}</span>
+                  <span className="mt-[var(--space-1)] block max-w-[var(--measure)] text-sm leading-relaxed text-ink-2">
+                    {item.why}
+                  </span>
                 </span>
               </button>
             )
           })}
         </div>
 
-        <div className="glass mt-6 flex flex-wrap items-center justify-between gap-4 rounded-2xl p-6">
+        <div className="mt-[var(--space-4)] flex flex-wrap items-center justify-between gap-[var(--space-3)]">
           <div>
-            <p className="text-lg font-bold">
-              <span className="text-gold">{done}</span> of {CHECKLIST.length} checked
+            <p>
+              <span className="readout">{done}</span> of {CHECKLIST.length} checked
             </p>
-            <p className="mt-1 text-sm text-white/50">
+            <p className="mt-[var(--space-1)] max-w-[var(--measure)] text-sm text-ink-2">
               {done === CHECKLIST.length
                 ? 'You have done the reading. The decision is yours and it always was.'
                 : 'A checklist is homework, not a verdict. We do not score it and we do not tell you what to do with it.'}
             </p>
           </div>
+          {/* The one action this page argues for. */}
           <Link
             to="/learn/fundamental/2"
-            className="rounded-full border border-gold/40 px-5 py-2.5 text-sm font-semibold text-gold transition hover:bg-gold/10"
+            className="shrink-0 rounded-full border border-hairline-strong px-[var(--space-4)] py-[var(--space-2)] text-sm text-accent transition hover:border-accent"
           >
             Brush up on IPOs
           </Link>
         </div>
       </section>
 
-      <div className="glass mt-10 flex items-start gap-3 rounded-2xl p-5">
-        <Info size={17} className="mt-0.5 shrink-0 text-white/40" />
-        <p className="text-sm leading-relaxed text-white/50">
-          Subscription data belongs to NSE and is shown as the exchange publishes it. Headlines belong to their
-          publishers. InvestoMillionaire is not a SEBI registered investment adviser or research analyst and does not
-          recommend any issue.{' '}
-          <Link to="/disclaimer" className="text-gold hover:underline">
-            Full disclaimer
-          </Link>
-        </p>
-      </div>
+      <Notice tone="info" className="mt-[var(--space-6)]">
+        Subscription data belongs to NSE and is shown as the exchange publishes it. Headlines belong to their
+        publishers. InvestoMillionaire is not a SEBI registered investment adviser or research analyst and does not
+        recommend any issue.{' '}
+        <Link to="/disclaimer" className="text-ink underline decoration-1 underline-offset-4">
+          Full disclaimer
+        </Link>
+      </Notice>
     </div>
   )
 }

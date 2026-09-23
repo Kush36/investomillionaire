@@ -4,17 +4,17 @@ import { Html } from '@react-three/drei'
 // inherit the site typography for free.
 export default function Label({ position, children, tone = 'default', size = 'sm' }) {
   const tones = {
-    default: 'bg-white/10 text-white/85 border-white/15',
-    gold: 'bg-gold/20 text-gold-soft border-gold/40',
-    mint: 'bg-mint/15 text-mint border-mint/40',
-    flame: 'bg-flame/15 text-flame border-flame/40',
+    default: 'bg-surface-2 text-ink-2 border-hairline',
+    accent: 'bg-accent-tint text-accent border-accent',
+    gain: 'bg-surface text-gain border-gain',
+    loss: 'bg-surface text-loss border-loss',
   }
   return (
     <Html position={position} center distanceFactor={11} zIndexRange={[10, 0]}>
       <div
         className={`pointer-events-none whitespace-nowrap rounded-full border px-2.5 py-1 font-mono ${
           size === 'xs' ? 'text-[9px]' : 'text-[11px]'
-        } backdrop-blur-sm ${tones[tone]}`}
+        } ${tones[tone] ?? tones.default}`}
       >
         {children}
       </div>

@@ -1,64 +1,17 @@
-import nodemailer from 'nodemailer'
+// Mail goes out over Resend's HTTPS API rather than SMTP. Render blocks outbound
+// traffic on ports 25, 465 and 587 for free instances, so an SMTP transport there
+// hangs until the socket times out and then fails. HTTPS is not blocked.
+const ENDPOINT = 'https://api.resend.com/emails'
+// Overridable so the timeout path is testable without a ten second wait.
+const TIMEOUT_MS = Number(process.env.MAIL_TIMEOUT_MS) || 10_000
 
-// Works without SMTP configured: the code is printed to the server log instead of
-// being sent, so signup and reset are testable on a laptop with no mail account.
-const configured = Boolean(process.env.SMTP_USER && process.env.SMTP_PASS)
+const apiKey = process.env.RESEND_API_KEY || ''
 
-const transport = configured
-  ? nodemailer.createTransport({
-      host: process.env.SMTP_HOST || 'smtp.gmail.com',
-      port: Number(process.env.SMTP_PORT || 465),
-      secure: Number(process.env.SMTP_PORT || 465) === 465,
-      auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
-    })
-  : null
+// The address has to be on a domain verified in Resend. Sending as a gmail.com
+// address will be rejected.
+const FROM = process.env.MAIL_FROM || 'InvestoMillionaire <no-reply@investomillionaire.com>'
 
-export const mailerReady = configured
-
-// When real SMTP is missing or broken, fall back to an auto-created Ethereal
-// mailbox. Nothing reaches the recipient's real inbox, but the message is
-// genuinely sent and comes back with a preview URL, so the flow is fully usable
-// and the template renders exactly as it will in production.
-let etherealTransport = null
-let etherealFailed = false
-
-async function ethereal() {
-  if (etherealTransport || etherealFailed) return etherealTransport
-  try {
-    const account = await nodemailer.createTestAccount()
-    etherealTransport = nodemailer.createTransport({
-      host: account.smtp.host,
-      port: account.smtp.port,
-      secure: account.smtp.secure,
-      auth: { user: account.user, pass: account.pass },
-    })
-    console.log('[mail] using an Ethereal test mailbox. Real inbox delivery needs SMTP_PASS.')
-  } catch (err) {
-    etherealFailed = true
-    console.error('[mail] could not reach Ethereal:', err.message)
-  }
-  return etherealTransport
-}
-
-async function viaEthereal(email, code, purpose, heading, reason) {
-  const transport = await ethereal()
-  if (!transport) {
-    console.log(`[mail] OTP for ${email} (${purpose}) is ${code}`)
-    return { delivered: false, reason: 'no-transport' }
-  }
-  const info = await transport.sendMail({
-    from: FROM,
-    to: email,
-    subject: purpose === 'reset' ? 'Your password reset code' : 'Your verification code',
-    html: template(heading, code, reason),
-    text: `${heading}\n\nYour code is ${code}. It expires in 10 minutes.`,
-  })
-  const previewUrl = nodemailer.getTestMessageUrl(info)
-  console.log(`[mail] OTP for ${email} (${purpose}) is ${code} | preview: ${previewUrl}`)
-  return { delivered: false, preview: true, previewUrl }
-}
-
-const FROM = process.env.SMTP_FROM || `InvestoMillionaire <${process.env.SMTP_USER || 'investomillionaire@gmail.com'}>`
+export const mailerReady = Boolean(apiKey)
 
 function template(heading, code, reason) {
   return `
@@ -81,6 +34,8 @@ function template(heading, code, reason) {
   </div>`
 }
 
+// Never throws. A caller that cannot send mail still has to answer the browser,
+// and a mail outage must not turn signup into a 500.
 export async function sendOtp(email, code, purpose) {
   const heading = purpose === 'reset' ? 'Reset your password' : 'Confirm your email'
   const reason =
@@ -88,23 +43,36 @@ export async function sendOtp(email, code, purpose) {
       ? 'Enter this code on the reset screen to choose a new password.'
       : 'Enter this code to finish creating your account.'
 
-  if (!transport) {
-    return viaEthereal(email, code, purpose, heading, reason)
+  // No key on a laptop is the normal case. Print the code so signup and reset stay
+  // testable without a mail account.
+  if (!apiKey) {
+    console.log(`[mail] not configured. OTP for ${email} (${purpose}) is ${code}`)
+    return { delivered: false, reason: 'not-configured' }
   }
 
   try {
-    await transport.sendMail({
-      from: FROM,
-      to: email,
-      subject: purpose === 'reset' ? 'Your password reset code' : 'Your verification code',
-      html: template(heading, code, reason),
-      text: `${heading}\n\nYour code is ${code}. It expires in 10 minutes.`,
+    const res = await fetch(ENDPOINT, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        from: FROM,
+        to: [email],
+        subject: purpose === 'reset' ? 'Your password reset code' : 'Your verification code',
+        html: template(heading, code, reason),
+        text: `${heading}\n\nYour code is ${code}. It expires in 10 minutes.`,
+      }),
+      signal: AbortSignal.timeout(TIMEOUT_MS),
     })
+
+    if (!res.ok) {
+      const body = await res.text().catch(() => '')
+      console.error(`[mail] Resend responded ${res.status} for ${email}: ${body.slice(0, 200)}`)
+      return { delivered: false, reason: `http-${res.status}` }
+    }
     return { delivered: true }
   } catch (err) {
-    // Credentials wrong, quota hit, Gmail down. Falling back to the log keeps
-    // signup and reset working instead of returning a 500 to the user.
-    console.error(`[mail] send failed for ${email}: ${err.message.split('\n')[0]}`)
-    return viaEthereal(email, code, purpose, heading, reason)
+    // Timeout, DNS, TLS. The code is already stored, the caller decides what to do.
+    console.error(`[mail] send failed for ${email}: ${err.message}`)
+    return { delivered: false, reason: err.name === 'TimeoutError' ? 'timeout' : 'network' }
   }
 }
